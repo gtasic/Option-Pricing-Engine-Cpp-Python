@@ -79,7 +79,8 @@ def insrer_deux_options(supabase_client, df_daily_choice):
                     "rho": round(float(option1['rho']),2),
                     "volume": int(option1['volume']) if not pd.isna(option1['volume']) else None,
                     "openInterest": int(option1['openInterest']) if not pd.isna(option1['openInterest']) else None,
-                    "status": "open"
+                    "status": "open",
+                    "comment": f"option achetée le  {datetime.now(UTC).date().isoformat()}"
                 }]).execute()
         
     
@@ -87,7 +88,8 @@ def insrer_deux_options(supabase_client, df_daily_choice):
                 {
                     "date_ouverture": datetime.now(UTC).date().isoformat(),
                     "contract_symbol": option2['contract_symbol'],
-                    "expiry" : option2['expiry'].isoformat(),
+      #              "expiry" : option2['expiry'].isoformat(),
+                    "expiry" : datetime(2025,9,20).date().isoformat(),
                     "quantity": 10,
                     "strike": round(float(option2['strike']),2),
                     "T": option2['T'],
@@ -99,11 +101,13 @@ def insrer_deux_options(supabase_client, df_daily_choice):
                     "rho": round(float(option2['rho']),2),
                     "volume": int(option2['volume']) if not pd.isna(option2['volume']) else None,
                     "openInterest": int(option2['openInterest']) if not pd.isna(option2['openInterest']) else None,
-                    "status": "open"
+                    "status": "open",
+                    "comment": "option achetée le " + datetime.now(UTC).date().isoformat()
+
                 }]).execute()
 
 
-
+"""
 def transaction_costs_deux_options(supabase_client):
     global CURRENT_NAV  # c'est la valeur actuelle du portefeuille donc cash + valeur des options + valeur des actions de couverture
     global CASH_BALANCE # l'argent cash disponible dans le portefeuille, la trésorerie
@@ -116,18 +120,18 @@ def transaction_costs_deux_options(supabase_client):
     total_transaction_costs = 0.0
     for position in open_positions:
         prix = position['prix'] * position['quantity']    #On suppose qu'on achète au prix mid les options
-        transaction_costs = prix * (1-TRANSACTION_COSTS_RATE) # Frais de transaction à l'achat
-        total_transaction_costs += transaction_costs
+        transaction_costs = prix * TRANSACTION_COSTS_RATE # Frais de transaction à l'achat
+        total_transaction_costs += transaction_costs + prix
     supabase_client.table("trades_info").insert({
         "date_real": datetime.now(UTC).date().isoformat(),
         "transaction_cost": total_transaction_costs,
-        "description": f"Frais de transaction pour l'ouverture de deux options {open_positions[0]['contract_symbol']} et {open_positions[1]['contract_symbol']} d'une quantité de {open_positions[0]['quantity']} et {open_positions[1]['quantity']} respectivement"
+        "description": f"Frais de transaction pour l'ouverture de deux options {open_positions[0]['contract_symbol']} et {open_positions[1]['contract_symbol']} d'une quantité de {open_positions[0]['quantity']} et {open_positions[1]['quantity']} respectivement avec des frais de transaction de {TRANSACTION_COSTS_RATE*100:.2f}%"
     }).execute()
-    CASH_BALANCE -= total_transaction_costs  #On met à jour le cash disponible après les frais de transaction
+    CASH_BALANCE -= total_transaction_costs  #On met à jour le cash disponible après le cout total des transactions
 
     print(f"Frais de transaction pour l'ouverture de deux options : {total_transaction_costs:.2f} EUR")
     print(f"Valeur actuelle du portefeuille après frais de transaction : {CURRENT_NAV:.2f} EUR")
-
+"""
 
 """
 def close_position(supabase_client, asof):
@@ -165,14 +169,14 @@ def close_position(supabase_client):
 
     positions_to_close = [
         pos for pos in open_positions 
-        if date.fromisoformat(pos['expiry']) <= asof_date
+        if date.fromisoformat(pos['expiry']) <= asof_date -1
     ]
     
     prix_actif_response = supabase_client.table("prices").select("close").eq("asof", asof_str).execute()
     if not prix_actif_response.data:
         print(f"Erreur: Prix S0 non trouvé pour {asof_str} pour le calcul du Payoff.")
         return
-    S0 = prix_actif_response.data[0]['S0']
+    S0 = prix_actif_response.data[0]['close']
 
     for pos in positions_to_close:
         is_call = 'C' in pos['contract_symbol'] # Exemple: ES24C2800
@@ -200,6 +204,9 @@ def close_position(supabase_client):
 def actualiser_delta(client_supabase): #chaque jour on met à jour le delta de chaque option "open" dans le portefeuille pour recalculer le delta total du portefeuille et faire le delta hedging
     response = client_supabase.table("portfolio_options").select("*").eq("status", "open").execute()
     open_positions = response.data
+    if not open_positions:
+        print("Aucune position ouverte trouvée dans le portefeuille.")
+        return
 
     response2 = client_supabase.table("simulation_params").select("*").execute()
     simu_params = response2.data
@@ -212,7 +219,7 @@ def actualiser_delta(client_supabase): #chaque jour on met à jour le delta de c
             new_delta = df_option.iloc[0]['delta']
             client_supabase.table("portfolio_options").update({
                 "delta": float(new_delta)
-            }).eq("contract_symbol", position["contract_symbol"]).execute()
+            }).eq(["contract_symbol"], position["contract_symbol"]).execute()
             print(f"Delta mis à jour pour {position['contract_symbol']}: {new_delta}")
         else:
             print(f"Aucune donnée de delta trouvée pour {position['contract_symbol']} à la date {datetime.now(UTC).date().isoformat()}")
@@ -229,6 +236,43 @@ def actualiser_delta(client_supabase): #chaque jour on met à jour le delta de c
             print(f"Aucune donnée de delta trouvée pour {position['contract_symbol']} à la date {datetime.now(UTC).date().isoformat()}")
 """
 
+
+
+def actualiser_options_open(client_supabase): #mettre à jour les greeks et prix des options chaque jour pour avoir un delta hedging cohérent
+    
+    response = client_supabase.table("portfolio_options").select("*").eq("status", "open").execute()
+    open_positions = response.data
+    if not open_positions:
+        print("Aucune position ouverte trouvée dans le portefeuille.")
+        return
+    
+    response2 = client_supabase.table("simulation_params").select("*").execute()
+    simu_params = response2.data
+    df_simu = pd.DataFrame(simu_params)
+    df_simu = df_simu[df_simu['asof'] == datetime.now(UTC).date().isoformat()]
+    df_simu[['gamma','vega','theta','rho','BS_price','MC_price','CRR_price']] = np.nan
+    df_simu = backtest.final_pd(df_simu)
+    df_simu["prix"] = (df_simu["bid"] + df_simu["ask"])/2
+
+
+
+    for position in open_positions:
+        df_option = df_simu[(df_simu['contract_symbol'] == position['contract_symbol']) & (df_simu['strike'] == position['strike'])]
+        if not df_option.empty:
+            option_data = df_option.iloc[0]
+            client_supabase.table("portfolio_options").update({
+                "asof": datetime.now(UTC).date().isoformat(),
+                "gamma": float(option_data['gamma']),
+                "vega": float(option_data['vega']),
+                "theta": float(option_data['theta']),
+                "rho": float(option_data['rho']),
+                "prix": float(option_data['mid'])
+            }).eq("contract_symbol", position["contract_symbol"]).execute()
+            print(f"Options mises à jour pour {position['contract_symbol']} le {datetime.now(UTC).date().isoformat()}")
+        else:
+            print(f"Aucune donnée trouvée pour {position['contract_symbol']} à la date {datetime.now(UTC).date().isoformat()}")
+
+
 def calcul_delta_portefeuille(supabase_client):
     response = supabase_client.table("portfolio_options").select("*").eq("status", "open").execute()
     open_positions = response.data
@@ -236,6 +280,7 @@ def calcul_delta_portefeuille(supabase_client):
     total_delta = 0.0
     for position in open_positions:
         total_delta += position['delta'] * position["quantity"]
+    total_delta += quantite_actif  # On ajoute le delta de l'actif sous-jacent (1 par unité)
     print(f"Delta total du portefeuille : {total_delta:.4f}")
     return total_delta
 
@@ -254,11 +299,11 @@ def achat_actif(supabase_client, total_delta): #total delta du portefeuille est 
         return
 
     prix_actif = prix_actif.data[0]['close']  # Simuler une légère variation du prix en fonction de la quantité détenue
-    quantite_actif_achat = -(total_delta + quantite_actif)  # Acheter ou vendre l'actif pour neutraliser le delta
+    quantite_actif_achat = -(total_delta )  # Acheter ou vendre l'actif pour neutraliser le delta
     cout_transaction = quantite_actif_achat * prix_actif * (1+TRANSACTION_COSTS_RATE) # Coût de transaction avec frais
     quantite_actif += quantite_actif_achat
 #    CURRENT_NAV += quantite_actif_achat * prix_actif - cout_transaction  # Met à jour la valeur actuelle du portefeuille après l'achat/vente et les frais de transaction
-    CASH_BALANCE -= quantite_actif_achat * prix_actif + cout_transaction  # Met à jour le cash disponible après l'achat/vente et les frais de transaction
+    CASH_BALANCE -= quantite_actif_achat * prix_actif * (1 + TRANSACTION_COSTS_RATE)  # Met à jour le cash disponible après l'achat/vente et les frais de transaction
 
     supabase_client.table("trades_info").insert({
         "date_real": datetime.now(UTC).date().isoformat(),
@@ -323,7 +368,7 @@ def calculer_NAV_journalier(supabase_client):
         df_price = pd.DataFrame(price_response.data)
         df_price = df_price[df_price['asof'] == datetime.now(UTC).date().isoformat()]
 
-        if df_price.empty:
+        if not df_price.empty:
             prix_mid_D = (price_response.data[0]['bid'] + price_response.data[0]['ask'] ) / 2
             valeur_options += prix_mid_D * pos['quantity']
         else:
@@ -331,7 +376,8 @@ def calculer_NAV_journalier(supabase_client):
             print(f"Avertissement: Prix mid non trouvé pour {pos['contract_symbol']}")
 
     # 3. NAV TOTALE
-    NAV_TODAY = CASH_BALANCE + valeur_actions + valeur_options
+    NAV_TODAY = valeur_actions + valeur_options + CASH_BALANCE # on ne rajoute pas le cash car on ne veut que la valeur des actifs
+    print(f"NAV journalier au {current_date_str} : {NAV_TODAY:.2f} EUR")
     return NAV_TODAY
 
 
@@ -402,13 +448,16 @@ def to_supabase_portfolio(supabase_client, pnl, delta_toltal, NAV):
     return
 
 
+
 df_daily_choice = backtest.final  #dataframe des options sélectionnées chaque jour
-insrer_deux_options(supabase_client, df_daily_choice)
-transaction_costs_deux_options(supabase_client)
+close_position(supabase_client)
 actualiser_delta(supabase_client)
+actualiser_options_open(supabase_client)
+insrer_deux_options(supabase_client, df_daily_choice)
 total_delta = calcul_delta_portefeuille(supabase_client)
 achat_actif(supabase_client, total_delta)
 afficher_valeur_portefeuille()
 NAV = calculer_NAV_journalier(supabase_client)
-pnl = daily_pnl(supabase_client)    
+pnl = daily_pnl(supabase_client)
 to_supabase_portfolio(supabase_client, pnl, total_delta, NAV)
+

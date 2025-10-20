@@ -1,15 +1,16 @@
 import pandas as pd
 import numpy as np
 import backtest
-import matplotlib.pyplot as plt
 from copy import deepcopy
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 import test
 import plotly
 UTC = ZoneInfo("UTC")
-
-
+import finance
+import random
+import matplotlib.pyplot as plt
+import seaborn as sns
 from copy import deepcopy
 
 
@@ -59,6 +60,9 @@ def calcul_metrics(df) :
     asof_today = datetime.now(UTC).date()
     df_final['asof'] = asof_today
     return(df_final)
+
+
+
 
 
 def bucket_error(maturite , delta, df) : 
@@ -169,49 +173,125 @@ def visu_greeks(df) :
 
 
 
+visu_greeks(df_total)
 
 
-from matplotlib.widgets import CheckButtons
+def etude_convergence_model_MCC_CRR(df, N_values=[50, 100,200, 500,750, 1000, 1500,3000,5000,7500]):
+    # Créez des listes pour stocker les résultats
+    all_results = []
+    result_maes_mc = []
+    result_maes_crr = []
 
-df_vizu = change_df(df_total)
-market_prices = df_vizu['mid']
-bs_errors = df_vizu['err_BS']
-mc_errors = df_vizu['err_MC']
-crr_errors = df_vizu['err_CRR']
+    print("Début de l'étude de convergence...") # Astuce de débogage
 
-fig, ax = plt.subplots(figsize=(10,5))
-plt.subplots_adjust(left=0.1, right=0.8)  # espace pour les boutons
+    for N in N_values:
+        print(f"Calcul pour N = {N}...") # Astuce de débogage
+        
+        # Créez des listes temporaires pour les prix calculés
+        crr_prices = []
+        mc_prices = []
 
-p_bs = ax.scatter(market_prices, bs_errors, label='BS', alpha=0.8)
-p_mc = ax.scatter(market_prices, mc_errors, label='MC', alpha=0.8)
-p_crr = ax.scatter(market_prices, crr_errors, label='CRR', alpha=0.8)
+        # Itérez sur chaque ligne du DataFrame
+        for index, row in df.iterrows():
+            # Appelez vos fonctions C++ avec les valeurs de la ligne actuelle
+            CRR_para = finance.tree_parametres()
+            CRR_para.S0, CRR_para.K, CRR_para.T, CRR_para.r, CRR_para.sigma, CRR_para.N = row['S0'], row['strike'], row['T'], row['r'], row['sigma'], N
+            MC_para = finance.MC_parametres()
+            MC_para.nb_simulations, MC_para.nb_paths, MC_para.S0, MC_para.K, MC_para.T, MC_para.r, MC_para.sigma = N, N, row['S0'], row['strike'], row['T'], row['r'], row['sigma']
 
-ax.set_xlabel("Market Mid Price")
-ax.set_ylabel("Error Model Price")
-ax.set_title("Model Predictions vs Market Prices")
-ax.legend(loc='upper left')
+            crr_p = finance.tree(CRR_para)
+            mc_p = finance.monte_carlo_call(MC_para)
+            
+            crr_prices.append(crr_p)
+            mc_prices.append(mc_p)
 
-# Axe pour les CheckButtons
-rax = plt.axes([0.85, 0.4, 0.12, 0.15])  # x, y, width, height (fraction of figure)
-labels = ['BS', 'MC', 'CRR']
-visibility = [True, True, True]
-check = CheckButtons(rax, labels, visibility)
+        # Ajoutez les nouvelles colonnes de prix au DataFrame
+        temp_df = df.copy()
+        temp_df['CRR_price'] = crr_prices
+        temp_df['MC_price'] = mc_prices
+        temp_df['err_CRR'] = temp_df['CRR_price'] - temp_df['mid']
+        temp_df['err_MC'] = temp_df['MC_price'] - temp_df['mid']
+        temp_df['N'] = N
+        all_results.append(temp_df)
+        # Calculez et stockez le MAE pour ce N
+        err_mc = temp_df['err_MC']
+        mae_mc = float(err_mc.abs().mean())
+        result_maes_mc.append(mae_mc)
+        print(f"MAE_mc pour N={N} : {mae_mc}") # Astuce de débogage
 
-def func(label):
-    if label == 'BS':
-        p_bs.set_visible(not p_bs.get_visible())
-    elif label == 'MC':
-        p_mc.set_visible(not p_mc.get_visible())
-    elif label == 'CRR':
-        p_crr.set_visible(not p_crr.get_visible())
-    plt.draw()
+        err_crr = temp_df['err_CRR']
+        mae_crr = float(err_crr.abs().mean())
+        result_maes_crr.append(mae_crr)
+        print(f"MAE_crr pour N={N} : {mae_crr}") #
 
-check.on_clicked(func)
+    print("Fin des calculs, création du graphique...") # Astuce de débogage
 
-plt.show()
-plt.savefig('interactive_model_vs_market_price.png')
+    # Créez le graphique à partir de toutes les données collectées
+    results_df = pd.concat(all_results)
+    
+    plt.figure(figsize=(14, 7))
+    # ... (votre code pour tracer les points avec plt.scatter) ...
+    # Exemple pour Monte Carlo
+    plt.plot(N_values, result_maes_mc, marker='o', label='MC Model Price Error', color='blue')
+    # Exemple pour CRR
+    plt.plot(N_values, result_maes_crr, marker='o', label='CRR Model Price Error', color='orange')
+
+    plt.xlabel('Number of paths (N)')
+    plt.ylabel('Model Price Error')
+    plt.title('Convergence of MC and CRR Model Prices')
+    plt.legend()
+    
+    # N'oubliez pas : sauvegardez AVANT d'afficher
+    plt.savefig('convergence_MC_CRR.png')
+    plt.show()
+
+    print("Graphique sauvegardé et affiché.")
 
 
 
+maturite_bins = [0, 30, 90, 180, 365, 730] # Bins en jours (0-30j, 30-90j, etc.)
+maturite_labels = ['0-30j', '30-90j', '90-180j', '180-365j', '365j+']
+df_maturity = change_df(df_total)
+df_maturity['maturity_bucket'] = pd.cut(df_maturity['T'] * 365, bins=maturite_bins, labels=maturite_labels)
 
-visualiser_erreur(change_df(df_total), 'model_vs_market_price.png')
+
+# Rassembler les colonnes d'erreur en un format long
+df_long = pd.melt(
+    df_maturity,
+    id_vars=['maturity_bucket'],           # Colonnes à conserver
+    value_vars=['err_BS', 'err_MC', 'err_CRR'], # Colonnes à "fondre"
+    var_name='model',                      # Nom de la nouvelle colonne pour les modèles
+    value_name='error'                     # Nom de la nouvelle colonne pour les erreurs
+)
+
+def visualiser_erreur_boxplot(df_long, bucket_column='maturity_bucket'):
+    """
+    Crée un box plot comparant l'erreur des modèles pour chaque bucket.
+    """
+    plt.figure(figsize=(14, 8)) # Crée une figure plus grande
+
+    # Crée le box plot
+    sns.boxplot(
+        data=df_long,
+        x=bucket_column,  # Les catégories sur l'axe X
+        y='error',        # Les valeurs sur l'axe Y
+        hue='model'       # Permet de comparer les modèles avec des couleurs différentes
+    )
+
+    # Améliorations du graphique
+    plt.title(f'Distribution de l\'Erreur des Modèles par {bucket_column}', fontsize=16)
+    plt.xlabel('Bucket de Maturité', fontsize=12)
+    plt.ylabel('Erreur de Prix (Modèle - Marché)', fontsize=12)
+    plt.axhline(0, color='r', linestyle='--', linewidth=1.5) # Ajoute une ligne à zéro pour référence
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    
+    # Sauvegardez AVANT d'afficher
+    plt.savefig('error_boxplot_by_maturity.png')
+    plt.show()
+
+
+# Appelez votre nouvelle fonction de visualisation
+visualiser_erreur_boxplot(df_long)
+
+"""df_utile = test.df_simu[['S0','strike','T','r','sigma','mid']]
+etude_convergence_model_MCC_CRR(df_utile[df_utile["mid"]>1].sample(n=70, random_state=random.randint(0, 15)))"""
