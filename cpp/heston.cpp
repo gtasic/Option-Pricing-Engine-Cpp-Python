@@ -5,6 +5,8 @@
 #include <chrono>
 #include <numeric>
 #include <iomanip>
+#include "total.hpp"
+
 
 // Structure des paramètres du modèle
 struct HestonParams {

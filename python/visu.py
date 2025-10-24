@@ -296,3 +296,6 @@ df_utile = test.df_simu[['S0','strike','T','r','sigma','mid']]
 
 
 #etude_convergence_model_MCC_CRR(df_utile[df_utile["mid"]>1].sample(n=150, random_state=random.randint(0, 15)))
+
+
+

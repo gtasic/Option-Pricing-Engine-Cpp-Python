@@ -63,3 +63,5 @@ st.write("In the Current Positions section, users can view their open options po
          "This section provides a comprehensive overview of the portfolio's risk exposure and helps users make informed decisions about their trading strategies."
          "The aggregated Greeks for the entire portfolio are also displayed, giving users a quick snapshot of their overall risk profile.")
 
+
+st.header("3D Volatility Surface Visualization")
