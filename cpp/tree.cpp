@@ -36,10 +36,11 @@ double tree(tree_parametres params) {
     }
     return valeur_finale[0][0] ;
 }
-
+/*
 int main() {
     tree_parametres params{100.0, 100.0, 1.0, 0.05, 0.2, 100} ;
     double prix_option = tree(params) ;
     std::cout << "Le prix de l'option est : " << prix_option << std::endl ;
     return 0 ;
 }
+*/

@@ -10,10 +10,15 @@ import finance
 from copy import deepcopy
 # Quand pas assez de données sur le marché américain risque de doublons sur les options choisies !!!! Attention 
 
+supabase_url: str = "https://wehzchguwwpopqpzyvpc.supabase.co"
+supabase_key: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlaHpjaGd1d3dwb3BxcHp5dnBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3MTE1OTQsImV4cCI6MjA3MzI4NzU5NH0.hK5fX9YowK83jx8MAzzNm5enBdvgU2XC4shZreACO2s"
+
+supabase = supabase.create_client(supabase_url, supabase_key)
+
 date_target = [7,30,60,90,180]
 delta_target = [0.25,0.5, 0.81]
 
-
+asof = datetime.now(timezone.utc).date() 
 
 def daily_choice_15(df_simulation, dte_target, delta_target, vol_min=50, oi_min=100):
     cand = df_simulation[(df_simulation['bid']>0) & (df_simulation['ask']>df_simulation['bid'])]
@@ -39,11 +44,11 @@ def final_pd(df_simu) :
     for i in range(len(df_simu["bid"])) : 
         BS_para = finance.BS_parametres(df_simu["S0"].iloc[i],df_simu["strike"].iloc[i],
                                         df_simu["T"].iloc[i],df_simu["r"].iloc[i],df_simu["sigma"].iloc[i]) 
-        MC_para = finance.MC_parametres()
-        MC_para.nb_simulations, MC_para.nb_paths, MC_para.S0, MC_para.K, MC_para.T, MC_para.r, MC_para.sigma = 10000,10000,df_simu["S0"].iloc[i],df_simu["strike"].iloc[i],df_simu["T"].iloc[i],df_simu["r"].iloc[i],df_simu["sigma"].iloc[i]
-        CRR_para = finance.tree_parametres()
+        MC_para = finance.MC_parametres(10000,10000,df_simu["S0"].iloc[i],df_simu["strike"].iloc[i],df_simu["T"].iloc[i],df_simu["r"].iloc[i],df_simu["sigma"].iloc[i])
+      #  MC_para.nb_simulations, MC_para.nb_paths, MC_para.S0, MC_para.K, MC_para.T, MC_para.r, MC_para.sigma = 10000,10000,df_simu["S0"].iloc[i],df_simu["strike"].iloc[i],df_simu["T"].iloc[i],df_simu["r"].iloc[i],df_simu["sigma"].iloc[i]
+        CRR_para = finance.tree_parametres(df_simu["S0"].iloc[i],df_simu["strike"].iloc[i],df_simu["T"].iloc[i],df_simu["r"].iloc[i],df_simu["sigma"].iloc[i], 1000)
         
-        CRR_para.S0, CRR_para.K, CRR_para.T, CRR_para.r, CRR_para.sigma, CRR_para.N = df_simu["S0"].iloc[i],df_simu["strike"].iloc[i],df_simu["T"].iloc[i],df_simu["r"].iloc[i],df_simu["sigma"].iloc[i], 1000
+      #  CRR_para.S0, CRR_para.K, CRR_para.T, CRR_para.r, CRR_para.sigma, CRR_para.N = df_simu["S0"].iloc[i],df_simu["strike"].iloc[i],df_simu["T"].iloc[i],df_simu["r"].iloc[i],df_simu["sigma"].iloc[i], 1000
 
         df_simu["gamma"].iloc[i] = finance.call_gamma(BS_para)
         df_simu["vega"].iloc[i] = finance.call_vega(BS_para)
@@ -63,7 +68,7 @@ def choix_df(date_target, delta_target) :
 
     for x in date_target : 
         for y in delta_target : 
-            choice = daily_choice_15(test.df_simu, x, y)
+            choice = daily_choice_15(test.df_simu[test.df_simu["asof"]== asof], x, y)
             daily_dict = {}
             rows.append(choice)
 
@@ -82,4 +87,15 @@ def choix_df(date_target, delta_target) :
     return final
 
 final = choix_df(date_target, delta_target)  #tous les jours on implémente nos données dans notre table 
+
 print(final)
+dict_daily = supabase.table("daily_choice").select("*").execute().data
+dict_daily = pd.DataFrame(dict_daily)
+
+for x in final["contract_symbol"] :
+    if x in dict_daily["contract_symbol"].values :
+        final = final[final["contract_symbol"] != x]
+
+print(final)
+
+

@@ -1,0 +1,10 @@
+# Dossiers de build C++
+build/
+
+# Fichiers et dossiers Python inutiles
+.venv/
+__pycache__/
+*.pyc
+
+# Fichiers de configuration de l'IDE
+.vscode/

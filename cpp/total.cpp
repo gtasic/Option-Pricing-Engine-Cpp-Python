@@ -15,7 +15,7 @@ PYBIND11_MODULE(finance, m) {
       .def_readwrite("sigma", &BS_parametres::sigma);
 
     py::class_<MC_parametres>(m, "MC_parametres")
-      .def(py::init<>(double,double,double,double,double,int,int))
+      .def(py::init<double,double,double,double,double,int,int>())
       .def_readwrite("nb_simulations", &MC_parametres::nb_simulations)
       .def_readwrite("nb_paths", &MC_parametres::nb_paths)
       .def_readwrite("S0", &MC_parametres::S0)
@@ -25,7 +25,7 @@ PYBIND11_MODULE(finance, m) {
       .def_readwrite("sigma", &MC_parametres::sigma);
 
     py::class_<tree_parametres>(m, "tree_parametres")
-      .def(py::init<>(double,double,double,double,double,int))
+      .def(py::init<double,double,double,double,double,int>())
       .def_readwrite("S0", &tree_parametres::S0)
       .def_readwrite("K",  &tree_parametres::K)
       .def_readwrite("T",  &tree_parametres::T)

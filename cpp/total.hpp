@@ -32,9 +32,9 @@ struct D {
     double d2;
 };
 
-inline double inv_sqrt_2pi() ;
-inline double norm_pdf(double x) ;
-inline double norm_cdf(double x) ;
+double inv_sqrt_2pi() ;
+double norm_pdf(double x) ;
+double norm_cdf(double x) ;
 
 double monte_carlo_call(const MC_parametres& params) ;
 double tree(tree_parametres params) ;

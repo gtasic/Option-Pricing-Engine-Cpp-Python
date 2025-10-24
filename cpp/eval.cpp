@@ -80,9 +80,10 @@ double vega_per_1pct(double vega_per_1_0) {
     return vega_per_1_0 / 100.0; // variation par +0.01 de sigma
 }
 
-
+/*
 int main() {
     BS_parametres BS_para {252, 120 , 0.05, 0.04, 0.5 }; 
     std::cout << call_delta(BS_para) << std::endl;
     return 0 ; 
 }
+*/

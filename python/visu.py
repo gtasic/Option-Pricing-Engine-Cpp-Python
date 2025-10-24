@@ -246,6 +246,7 @@ def etude_convergence_model_MCC_CRR(df, N_values=[50, 100,200, 500,750, 1000, 15
     plt.show()
 
     print("Graphique sauvegardé et affiché.")
+    return results_df
 
 
 
@@ -291,7 +292,7 @@ def visualiser_erreur_boxplot(df_long, bucket_column='maturity_bucket'):
 
 
 # Appelez votre nouvelle fonction de visualisation
-visualiser_erreur_boxplot(df_long)
+df_utile = test.df_simu[['S0','strike','T','r','sigma','mid']]
 
-"""df_utile = test.df_simu[['S0','strike','T','r','sigma','mid']]
-etude_convergence_model_MCC_CRR(df_utile[df_utile["mid"]>1].sample(n=70, random_state=random.randint(0, 15)))"""
+
+#etude_convergence_model_MCC_CRR(df_utile[df_utile["mid"]>1].sample(n=150, random_state=random.randint(0, 15)))

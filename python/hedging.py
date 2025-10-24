@@ -29,11 +29,13 @@ supabase_client = supabase.create_client(supabase_url, supabase_key)
 
 
 class Portfolio:
-    def __init__(self):
-        self.options = []  # Liste des options dans le portefeuille
-        self.cash_balance = 100000.0  # Capital initial du portefeuille
-        self.current_nav = self.cash_balance  # Valeur actuelle du portefeuille
+    def __init__(self, cash_balance=100000.0, current_nav=100000.0, transaction_costs_rate=0.001, quantity_assets=0.0):
+        self.options = []           # Liste des options dans le portefeuille
+        self.cash_balance = self.cash_balance # Capital initial du portefeuille
+        self.current_nav = self.current_nav  # Valeur actuelle du portefeuille
         self.transaction_costs_rate = 0.001 # 0.1% de frais de transaction
+        self.quantity_assets = 0.0  # Quantité de l'actif sous-jacent détenue
+
 
 CASH_BALANCE = 100000.0  # Capital initial du portefeuille
 CURRENT_NAV = CASH_BALANCE  # Valeur actuelle du portefeuille
@@ -169,7 +171,7 @@ def close_position(supabase_client):
 
     positions_to_close = [
         pos for pos in open_positions 
-        if date.fromisoformat(pos['expiry']) <= asof_date -1
+        if date.fromisoformat(pos['expiry']) <= asof_date 
     ]
     
     prix_actif_response = supabase_client.table("prices").select("close").eq("asof", asof_str).execute()
