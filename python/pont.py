@@ -10,11 +10,9 @@ import logging
 import backtest
 import visu
 load_dotenv()
-"""supabase_url: str = os.environ.get("SUPABASE_URL")
-supabase_key: str = os.environ.get("SUPABASE_ANON_KEY")"""
+supabase_url  = os.environ.get("SUPABASE_URL")
+supabase_key = os.environ.get("SUPABASE_KEY")
 
-supabase_url: str = "https://wehzchguwwpopqpzyvpc.supabase.co"
-supabase_key: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlaHpjaGd1d3dwb3BxcHp5dnBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3MTE1OTQsImV4cCI6MjA3MzI4NzU5NH0.hK5fX9YowK83jx8MAzzNm5enBdvgU2XC4shZreACO2s"
 
 supabase: Client = create_client(supabase_url, supabase_key)
 print("Supabase client created successfully.")  
@@ -90,7 +88,7 @@ def upload_daily_snapshot(asset_id, symbol, asof, r_flat=0.04):
         quotes_records = df_to_records(quotes_df, date_cols=['asof', 'expiry'])
         vol_records = df_to_records(vol_surface_df, date_cols=['asof'])
         sim_records = df_to_records(sim_params_df, date_cols=['asof', 'expiry'])
-        choice_records = df_to_records(backtest.final, date_cols= ["asof", "expiry"])
+  #      choice_records = df_to_records(backtest.final, date_cols= ["asof", "expiry"])
  #       options_pricing = df_to_records(visu.metrics, date_cols=["asof"])
         
         success_count = 0
@@ -100,7 +98,7 @@ def upload_daily_snapshot(asset_id, symbol, asof, r_flat=0.04):
             ("option_quotes", quotes_records),
             ("vol_surfaces", vol_records),
             ("simulation_params", sim_records), 
-            ("daily_choice", choice_records),
+      #      ("daily_choice", choice_records),
      #       ("option_pricing_metrics", options_pricing)
         ]
         

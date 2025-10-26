@@ -29,15 +29,13 @@ with col2:
 
 # Table des positions
 st.subheader("🔓 Open Options")
-df_positions = get_open_positions()  # Votre fonction
+df_positions = get_open_positions()
 
-# Formatter le DataFrame
 df_display = df_positions[[
     'contract_symbol', 'strike', 'expiry', 'quantity', 
     'prix', 'delta', 'gamma', 'vega', 'theta'
 ]].copy()
 
-# Colorer les deltas
 def color_delta(val):
     color = 'green' if val > 0 else 'red'
     return f'color: {color}'
@@ -47,7 +45,6 @@ st.dataframe(
     use_container_width=True
 )
 
-# Greeks agrégés
 st.subheader("🎯 Portfolio Greeks")
 col1, col2, col3, col4, col5 = st.columns(5)
 col1.metric("Δ Total", f"{df_positions['delta'].sum():.2f}")
@@ -56,7 +53,6 @@ col3.metric("ν Total", f"{df_positions['vega'].sum():.1f}")
 col4.metric("Θ Total", f"{df_positions['theta'].sum():.1f}")
 col5.metric("ρ Total", f"{df_positions['rho'].sum():.1f}")
 
-# Graphique : Répartition des strikes
 st.subheader("📊 Strike Distribution")
 fig = go.Figure(data=[go.Bar(x=df_positions['strike'], y=df_positions['quantity'])])
 st.plotly_chart(fig, use_container_width=True)

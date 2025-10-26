@@ -82,7 +82,6 @@ elif selected_model == "Binomial Tree":
     N = st.sidebar.number_input("Number of time steps (N):", value=100)
     if st.sidebar.button("Calculate Option Price"):
         st.write("Calculating option price using Binomial Tree model...")
-        # Here you would call your pricing function and display the result
         tree_param = fn.tree_parametres()
         tree_param.S0, tree_param.K, tree_param.T, tree_param.r, tree_param.sigma, tree_param.N = S, K, T, r, sigma, N
         valeur = fn.tree(tree_param)
@@ -100,7 +99,6 @@ elif selected_model == "Monte Carlo Simulation":
         mc_para.nb_simulations, mc_para.nb_paths, mc_para.S0, mc_para.K, mc_para.T, mc_para.r, mc_para.sigma = M, M, S, K, T, r, sigma
         valeur = fn.monte_carlo_call(mc_para)
         st.write(f"Option Price: {valeur:.2f} €")
-        # Here you would call your pricing function and display the result
 elif selected_model == "Heston Model":
     S = st.sidebar.number_input("Current stock price (S):", value=100.0)
     K = st.sidebar.number_input("Strike price (K):", value=100.0)
@@ -113,5 +111,4 @@ elif selected_model == "Heston Model":
     rho = st.sidebar.number_input("Correlation between asset and volatility (ρ):", value=-0.5)
     if st.sidebar.button("Calculate Option Price"):
         st.write("Calculating option price using Heston model...")
-        # Here you would call your pricing function and display the result
         st.write("Option Price: [Calculated Value]")

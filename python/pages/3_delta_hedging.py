@@ -24,7 +24,7 @@ daily_pnl = 2_500  # Example daily PnL
 sharpe = 1.8  # Example Sharpe ratio
 max_dd = -0.03  # Example max drawdown
 total_delta = 0.005  # Example total delta
-
+# We will have to implement the real values from our supabase database
 
 with col1:
     st.metric(

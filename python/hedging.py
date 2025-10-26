@@ -16,15 +16,12 @@ sys.path.append("/workspaces/finance-/build")
 
 import finance
 from copy import deepcopy
+from dotenv import load_dotenv
+load_dotenv()
 
 
-supabase_url: str = "https://wehzchguwwpopqpzyvpc.supabase.co"
-supabase_key: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlaHpjaGd1d3dwb3BxcHp5dnBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3MTE1OTQsImV4cCI6MjA3MzI4NzU5NH0.hK5fX9YowK83jx8MAzzNm5enBdvgU2XC4shZreACO2s"
-
-
-"""
 url = os.getenv("SUPABASE_URL")
-key = os.getenv("SUPABASE_KEY")"""
+key = os.getenv("SUPABASE_KEY")
 supabase_client = supabase.create_client(supabase_url, supabase_key)
 
 

@@ -3,6 +3,18 @@ import pandas as pd
 import sys
 sys.path.append("/workspaces/finance-/build")
 import finance as fn
+import plotly.graph_objects as go
+import numpy as np
+import supabase 
+import plotly.graph_objects as go
+
+supabase_url: str = "https://wehzchguwwpopqpzyvpc.supabase.co"
+supabase_key: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlaHpjaGd1d3dwb3BxcHp5dnBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3MTE1OTQsImV4cCI6MjA3MzI4NzU5NH0.hK5fX9YowK83jx8MAzzNm5enBdvgU2XC4shZreACO2s"
+
+
+
+supabase_client = supabase.create_client(supabase_url, supabase_key)
+
 
 
 erreur = "/workspaces/finance-/python/error_boxplot_by_maturity.png"
@@ -64,4 +76,29 @@ st.write("In the Current Positions section, users can view their open options po
          "The aggregated Greeks for the entire portfolio are also displayed, giving users a quick snapshot of their overall risk profile.")
 
 
-st.header("3D Volatility Surface Visualization")
+
+df = pd.DataFrame(supabase_client.table("daily_choice").select("*").execute().data)
+df = df.dropna()
+df.sample(n = 30)
+
+st.subheader("3D graphs of Volatility Surface")
+X = df['T'].values
+Y = df['strike'].values
+Z = df['sigma'].values
+
+fig = go.Figure(data=[go.Mesh3d(x=X, y=Y, z=Z, opacity=0.6, color='lightblue', )])
+fig.update_layout(scene=dict(
+                    xaxis_title='Maturity',
+                    yaxis_title='Strike',
+                    zaxis_title='Implied Volatility'),
+                  title='Volatility Surface')
+st.plotly_chart(fig)
+st.write("The 3D graph above represents the volatility surface, which is a three-dimensional plot showing the implied volatility of options across different strike prices and maturities."
+         "The X-axis represents the time to maturity of the options, the Y-axis represents the strike prices, and the Z-axis represents the implied volatility."
+         "Traders and analysts use the volatility surface to understand market expectations of future volatility and to identify potential mispricings in options."
+         "The shape of the volatility surface can provide insights into market sentiment, with common patterns such as 'volatility smiles' or 'volatility skews' indicating varying levels of risk perception among market participants.")
+
+      
+
+
+  

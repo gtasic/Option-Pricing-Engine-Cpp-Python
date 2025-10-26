@@ -177,23 +177,19 @@ visu_greeks(df_total)
 
 
 def etude_convergence_model_MCC_CRR(df, N_values=[50, 100,200, 500,750, 1000, 1500,3000,5000,7500]):
-    # Créez des listes pour stocker les résultats
     all_results = []
     result_maes_mc = []
     result_maes_crr = []
 
-    print("Début de l'étude de convergence...") # Astuce de débogage
+    print("Début de l'étude de convergence...") 
 
     for N in N_values:
-        print(f"Calcul pour N = {N}...") # Astuce de débogage
+        print(f"Calcul pour N = {N}...") 
         
-        # Créez des listes temporaires pour les prix calculés
         crr_prices = []
         mc_prices = []
 
-        # Itérez sur chaque ligne du DataFrame
         for index, row in df.iterrows():
-            # Appelez vos fonctions C++ avec les valeurs de la ligne actuelle
             CRR_para = finance.tree_parametres()
             CRR_para.S0, CRR_para.K, CRR_para.T, CRR_para.r, CRR_para.sigma, CRR_para.N = row['S0'], row['strike'], row['T'], row['r'], row['sigma'], N
             MC_para = finance.MC_parametres()
@@ -205,7 +201,6 @@ def etude_convergence_model_MCC_CRR(df, N_values=[50, 100,200, 500,750, 1000, 15
             crr_prices.append(crr_p)
             mc_prices.append(mc_p)
 
-        # Ajoutez les nouvelles colonnes de prix au DataFrame
         temp_df = df.copy()
         temp_df['CRR_price'] = crr_prices
         temp_df['MC_price'] = mc_prices
@@ -213,27 +208,23 @@ def etude_convergence_model_MCC_CRR(df, N_values=[50, 100,200, 500,750, 1000, 15
         temp_df['err_MC'] = temp_df['MC_price'] - temp_df['mid']
         temp_df['N'] = N
         all_results.append(temp_df)
-        # Calculez et stockez le MAE pour ce N
         err_mc = temp_df['err_MC']
         mae_mc = float(err_mc.abs().mean())
         result_maes_mc.append(mae_mc)
-        print(f"MAE_mc pour N={N} : {mae_mc}") # Astuce de débogage
+        print(f"MAE_mc pour N={N} : {mae_mc}") 
 
         err_crr = temp_df['err_CRR']
         mae_crr = float(err_crr.abs().mean())
         result_maes_crr.append(mae_crr)
-        print(f"MAE_crr pour N={N} : {mae_crr}") #
+        print(f"MAE_crr pour N={N} : {mae_crr}") 
 
-    print("Fin des calculs, création du graphique...") # Astuce de débogage
+    print("Fin des calculs, création du graphique...") 
 
-    # Créez le graphique à partir de toutes les données collectées
     results_df = pd.concat(all_results)
     
     plt.figure(figsize=(14, 7))
-    # ... (votre code pour tracer les points avec plt.scatter) ...
-    # Exemple pour Monte Carlo
+
     plt.plot(N_values, result_maes_mc, marker='o', label='MC Model Price Error', color='blue')
-    # Exemple pour CRR
     plt.plot(N_values, result_maes_crr, marker='o', label='CRR Model Price Error', color='orange')
 
     plt.xlabel('Number of paths (N)')
@@ -241,7 +232,6 @@ def etude_convergence_model_MCC_CRR(df, N_values=[50, 100,200, 500,750, 1000, 15
     plt.title('Convergence of MC and CRR Model Prices')
     plt.legend()
     
-    # N'oubliez pas : sauvegardez AVANT d'afficher
     plt.savefig('convergence_MC_CRR.png')
     plt.show()
 
@@ -256,42 +246,37 @@ df_maturity = change_df(df_total)
 df_maturity['maturity_bucket'] = pd.cut(df_maturity['T'] * 365, bins=maturite_bins, labels=maturite_labels)
 
 
-# Rassembler les colonnes d'erreur en un format long
 df_long = pd.melt(
     df_maturity,
-    id_vars=['maturity_bucket'],           # Colonnes à conserver
-    value_vars=['err_BS', 'err_MC', 'err_CRR'], # Colonnes à "fondre"
-    var_name='model',                      # Nom de la nouvelle colonne pour les modèles
-    value_name='error'                     # Nom de la nouvelle colonne pour les erreurs
+    id_vars=['maturity_bucket'],           
+    value_vars=['err_BS', 'err_MC', 'err_CRR'],
+    var_name='model',                     
+    value_name='error'                     
 )
 
 def visualiser_erreur_boxplot(df_long, bucket_column='maturity_bucket'):
     """
     Crée un box plot comparant l'erreur des modèles pour chaque bucket.
     """
-    plt.figure(figsize=(14, 8)) # Crée une figure plus grande
+    plt.figure(figsize=(14, 8)) 
 
-    # Crée le box plot
     sns.boxplot(
         data=df_long,
-        x=bucket_column,  # Les catégories sur l'axe X
-        y='error',        # Les valeurs sur l'axe Y
-        hue='model'       # Permet de comparer les modèles avec des couleurs différentes
+        x=bucket_column,  
+        y='error',        
+        hue='model'       
     )
 
-    # Améliorations du graphique
     plt.title(f'Distribution de l\'Erreur des Modèles par {bucket_column}', fontsize=16)
     plt.xlabel('Bucket de Maturité', fontsize=12)
     plt.ylabel('Erreur de Prix (Modèle - Marché)', fontsize=12)
-    plt.axhline(0, color='r', linestyle='--', linewidth=1.5) # Ajoute une ligne à zéro pour référence
+    plt.axhline(0, color='r', linestyle='--', linewidth=1.5)
     plt.grid(axis='y', linestyle='--', alpha=0.7)
     
-    # Sauvegardez AVANT d'afficher
     plt.savefig('error_boxplot_by_maturity.png')
     plt.show()
 
 
-# Appelez votre nouvelle fonction de visualisation
 df_utile = test.df_simu[['S0','strike','T','r','sigma','mid']]
 
 

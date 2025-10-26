@@ -10,7 +10,7 @@ from numpy import random
 import plotly.express as px
 import plotly.graph_objects as go
 import backtest
-
+from dotenv import load_dotenv
 import sys
 sys.path.append("/workspaces/finance-/build")
 
@@ -18,9 +18,9 @@ import finance
 from copy import deepcopy
 
 
-supabase_url: str = "https://wehzchguwwpopqpzyvpc.supabase.co"
-supabase_key: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlaHpjaGd1d3dwb3BxcHp5dnBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3MTE1OTQsImV4cCI6MjA3MzI4NzU5NH0.hK5fX9YowK83jx8MAzzNm5enBdvgU2XC4shZreACO2s"
-
+load_dotenv()
+supabase_url  = os.environ.get("SUPABASE_URL")
+supabase_key = os.environ.get("SUPABASE_KEY")
 
 
 supabase_client = supabase.create_client(supabase_url, supabase_key)
@@ -43,6 +43,7 @@ class Portfolio:
 
 
     def insrer_deux_options(self, supabase_client, df_daily_choice):
+        print(df_daily_choice)
         if len(df_daily_choice) < 2:
             print("Pas assez d'options disponibles pour en sélectionner deux.")
             return None, None
@@ -185,7 +186,7 @@ class Portfolio:
         S0 = prix_actif_response.data[0]['close']
 
         for pos in positions_to_close:
-            is_call = 'C' in pos['contract_symbol'] # Exemple: ES24C2800
+            is_call = 'C' in pos['contract_symbol'] 
             strike = pos['strike']
             quantity = pos['quantity']
 
@@ -268,11 +269,12 @@ class Portfolio:
                 option_data = df_option.iloc[0]
                 client_supabase.table("portfolio_options").update({
                     "asof": datetime.now(UTC).date().isoformat(),
+                    "delta": float(option_data['delta']),
                     "gamma": float(option_data['gamma']),
                     "vega": float(option_data['vega']),
                     "theta": float(option_data['theta']),
                     "rho": float(option_data['rho']),
-                    "prix": float(option_data['mid'])
+                    "prix": float(option_data['BS_price'])
                 }).eq("contract_symbol", position["contract_symbol"]).execute()
                 print(f"Options mises à jour pour {position['contract_symbol']} le {datetime.now(UTC).date().isoformat()}")
             else:
@@ -350,7 +352,6 @@ class Portfolio:
     def calculer_NAV_journalier(self, supabase_client):
         current_date_str = datetime.now(UTC).date().isoformat()
         
-        # 1. VALEUR DES ACTIONS dans le portefeuille au prix S0 du jour J
         prix_actif_response = supabase_client.table("prices").select().execute()
         if not prix_actif_response.data:
             print(f"Erreur: Prix S0 non trouvé pour {current_date_str}")
@@ -359,13 +360,11 @@ class Portfolio:
         prix_actif = prix_actif_response.data[0]['close']
         valeur_actions = self.quantity_assets * prix_actif
 
-        # 2. Valeur des OPTIONS dans le portefeuille au prix MID, BSS, CRR et MC du jour J
         response = supabase_client.table("portfolio_options").select("*").eq("status", "open").execute()
         open_positions = response.data
         valeur_options = 0.0
 
         for pos in open_positions:
-            # Récupérer le prix MID du jour D pour cette option
             price_response = supabase_client.table("simulation_params").select().eq(
                 "contract_symbol", 
                 pos["contract_symbol"]
@@ -377,10 +376,8 @@ class Portfolio:
                 prix_mid_D = (df_price.iloc[0]['bid'] + df_price.iloc[0]['ask']) / 2
                 valeur_options += prix_mid_D * pos['quantity']
             else:
-                # Important: Si le prix n'est pas trouvé (e.g., option expirée/non cotée)
                 print(f"Avertissement: Prix mid non trouvé pour {pos['contract_symbol']}")
 
-        # 3. NAV TOTALE
         self.current_nav = valeur_actions + valeur_options + self.cash_balance # on ne rajoute pas le cash car on ne veut que la valeur des actifs
         print(f"NAV journalier au {current_date_str} : {self.current_nav:.2f} EUR")
         return self.current_nav
@@ -465,7 +462,6 @@ class Portfolio:
                 delta_total=state.get('total_delta', 0.0)
             )
         else:
-            # Première exécution
             return cls()
 
 
@@ -500,7 +496,6 @@ def run_daily_strategy(supabase_client, df_daily_choice):
     
     return portfolio
 
-# Exécution
 if __name__ == "__main__":
     df_daily_choice = backtest.final
     portfolio = run_daily_strategy(supabase_client, df_daily_choice)

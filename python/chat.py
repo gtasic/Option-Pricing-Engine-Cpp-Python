@@ -4,8 +4,8 @@ import pandas as pd
 from datetime import datetime, timedelta, timezone
 import os
 import base64
-
-
+from dotenv import load_dotenv
+load_dotenv()
 try:
     openai.api_key = os.getenv("OPENAI_API_KEY")
     if openai.api_key is None:
@@ -14,22 +14,13 @@ except Exception as e:
     print(f"Erreur de configuration : {e}")
     exit()
 
-# --- 2. Connexion correcte à Supabase ---
-supabase_url = "https://wehzchguwwpopqpzyvpc.supabase.co"
+supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_API_KEY")
 if supabase_key is None:
     print("Erreur : La clé d'API Supabase n'est pas définie.")
     exit()
 supabase_client = supabase.create_client(supabase_url, supabase_key)
 
-# --- 3. Fonction pour encoder les images ---
-def encode_image(image_path):
-    try:
-        with open(image_path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode('utf-8')
-    except FileNotFoundError:
-        print(f"Erreur : Le fichier image {image_path} est introuvable.")
-        return None
 
 # --- 4. Préparation des données ---
 try:
@@ -39,15 +30,6 @@ try:
     portfolio_pnl = supabase_client.table("daily_portfolio_pnl").select("*").execute().data
     df_portfolio = pd.DataFrame(portfolio_pnl)
 
-    # Encodez vos images pour l'envoi
-    greeks_image_path = "png/greeks_vs_mid_price.png"
-    error_image_path = "png/error_boxplot_by_maturity.png"
-    
-    base64_greeks_image = encode_image(greeks_image_path)
-    base64_error_image = encode_image(error_image_path)
-
-    if not base64_greeks_image or not base64_error_image:
-        exit() # Arrête le script si les images ne sont pas trouvées
 
 except Exception as e:
     print(f"Erreur lors de la récupération des données : {e}")
@@ -81,19 +63,10 @@ messages = [
                 
                 Conclus le rapport avec des recommandations pour la semaine à venir.
                 """.format(df_options.to_string(), df_portfolio.to_string())
-            },
-            {
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/png;base64,{base64_greeks_image}"
-                }
-            },
-            {
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/png;base64,{base64_error_image}"
-                }
             }
+         
+            
+           
         ]
     }
 ]
@@ -101,15 +74,14 @@ messages = [
 try:
     print("Envoi de la requête à l'API OpenAI...")
     client = openai.ChatCompletion.create(
-        model="gpt-4-vision-preview", # Utiliser le modèle VISION
+        model="gpt-4-vision-preview", 
         messages=messages,
-        max_tokens=4096 # Augmenter la limite pour un rapport détaillé
+        max_tokens=4096 
     )
     report_content_md = client.choices[0].message.content
     print("Rapport généré avec succès !")
     print(report_content_md)
 
-    # --- 6. (Optionnel) Sauvegarder le rapport en Markdown ---
     with open("rapport_hebdomadaire.md", "w", encoding="utf-8") as f:
         f.write(report_content_md)
     print("Rapport sauvegardé en rapport_hebdomadaire.md")
