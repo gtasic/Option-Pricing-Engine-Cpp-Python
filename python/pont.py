@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np 
 import logging
 import backtest
-import visu
+
 load_dotenv()
 supabase_url  = os.environ.get("SUPABASE_URL")
 supabase_key = os.environ.get("SUPABASE_KEY")

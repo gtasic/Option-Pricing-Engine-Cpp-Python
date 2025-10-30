@@ -7,10 +7,12 @@ import plotly.graph_objects as go
 import numpy as np
 import supabase 
 import plotly.graph_objects as go
+import os
+from dotenv import load_dotenv
 
-supabase_url: str = "https://wehzchguwwpopqpzyvpc.supabase.co"
-supabase_key: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlaHpjaGd1d3dwb3BxcHp5dnBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3MTE1OTQsImV4cCI6MjA3MzI4NzU5NH0.hK5fX9YowK83jx8MAzzNm5enBdvgU2XC4shZreACO2s"
-
+load_dotenv()
+supabase_url  = os.environ.get("SUPABASE_URL")
+supabase_key = os.environ.get("SUPABASE_KEY")
 
 
 supabase_client = supabase.create_client(supabase_url, supabase_key)
@@ -96,7 +98,11 @@ st.plotly_chart(fig)
 st.write("The 3D graph above represents the volatility surface, which is a three-dimensional plot showing the implied volatility of options across different strike prices and maturities."
          "The X-axis represents the time to maturity of the options, the Y-axis represents the strike prices, and the Z-axis represents the implied volatility."
          "Traders and analysts use the volatility surface to understand market expectations of future volatility and to identify potential mispricings in options."
-         "The shape of the volatility surface can provide insights into market sentiment, with common patterns such as 'volatility smiles' or 'volatility skews' indicating varying levels of risk perception among market participants.")
+         "The shape of the volatility surface can provide insights into market sentiment, with common patterns such as 'volatility smiles' "
+         "or 'volatility skews' indicating varying levels of risk perception among market participants.")
+
+
+
 
       
 

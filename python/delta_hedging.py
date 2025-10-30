@@ -13,10 +13,9 @@ import backtest
 from dotenv import load_dotenv
 import sys
 sys.path.append("/workspaces/finance-/build")
-
 import finance
 from copy import deepcopy
-
+from scipy.stats import skew, kurtosis
 
 load_dotenv()
 supabase_url  = os.environ.get("SUPABASE_URL")
@@ -27,7 +26,7 @@ supabase_client = supabase.create_client(supabase_url, supabase_key)
 
 
 class Portfolio:
-    def __init__(self, cash_balance=100000.0, current_nav=10000.0, transaction_costs_rate=0.001, quantity_assets=0.0, delta_total=0.0, total_gamma=0.0, total_vega=0.0, total_theta=0.0, total_rho=0.0):
+    def __init__(self, cash_balance=100000.0, current_nav=10000.0, transaction_costs_rate=0.001, quantity_assets=0.0, delta_total=0.0, total_gamma=0.0, total_vega=0.0, total_theta=0.0, total_rho=0.0,total_sigma = 0.0 ):
         self.options = []           # Liste des options dans le portefeuille
         self.cash_balance = cash_balance # Capital initial du portefeuille
         self.current_nav = current_nav  # Valeur actuelle du portefeuille
@@ -38,6 +37,7 @@ class Portfolio:
         self.total_vega = total_vega
         self.total_theta = total_theta
         self.total_rho = total_rho
+        self.total_sigma = total_sigma
 
 
 
@@ -74,6 +74,7 @@ class Portfolio:
                         "strike": round(float(option1['strike']),2),
                         "T": option1['T'],
                         "prix": round(float(option1['mid']),2),
+                        "sigma" : round(float(option1['sigma']),2),
                         "delta": round(float(option1['delta']),2),
                         "gamma": round(float(option1['gamma']),2),
                         "vega": round(float(option1['vega']),2),
@@ -99,6 +100,7 @@ class Portfolio:
                         "strike": round(float(option2['strike']),2),
                         "T": option2['T'],
                         "prix": round(float(option2['mid']),2),
+                        "sigma" : round(float(option2['sigma']),2),
                         "delta": round(float(option2['delta']),2),
                         "gamma": round(float(option2['gamma']),2),
                         "vega": round(float(option2['vega']),2),
@@ -221,7 +223,7 @@ class Portfolio:
         df_simu = df_simu[df_simu['asof'] == datetime.now(UTC).date().isoformat()]
 
         for position in open_positions:
-            df_option = df_simu[(df_simu['contract_symbol'] == position['contract_symbol']) & (df_simu['strike'] == position['strike'])]
+            df_option = df_simu[(df_simu['contract_symbol'] == position['contract_symbol'])]
             if not df_option.empty:
                 new_delta = df_option.iloc[0]['delta']
                 client_supabase.table("portfolio_options").update({
@@ -264,11 +266,12 @@ class Portfolio:
 
 
         for position in open_positions:
-            df_option = df_simu[(df_simu['contract_symbol'] == position['contract_symbol']) & (df_simu['strike'] == position['strike'])]
+            df_option = df_simu[df_simu['contract_symbol'] == position['contract_symbol']]
             if not df_option.empty:
                 option_data = df_option.iloc[0]
                 client_supabase.table("portfolio_options").update({
-                    "asof": datetime.now(UTC).date().isoformat(),
+              #      "asof": datetime.now(UTC).date().isoformat(),
+                    "sigma" : float(option_data['sigma']),
                     "delta": float(option_data['delta']),
                     "gamma": float(option_data['gamma']),
                     "vega": float(option_data['vega']),
@@ -290,6 +293,8 @@ class Portfolio:
         self.total_vega = sum(pos['vega'] * pos['quantity'] for pos in open_positions)
         self.total_theta = sum(pos['theta'] * pos['quantity'] for pos in open_positions)
         self.total_rho = sum(pos['rho'] * pos['quantity'] for pos in open_positions)
+        self.total_sigma = sum(pos['sigma'] * pos['quantity'] for pos in open_positions)
+
 
         delta_actif = self.quantity_assets
         total_delta = delta_options + delta_actif
@@ -386,37 +391,60 @@ class Portfolio:
 
     # On peut aussi faire des graphiques de l'évolution du portefeuille avec toutes les métriques qui nous intéressent comme le pnl , NAV, Sharpe, RatioP&L cumulé, Sortino, max drawdown, avg gain/loss, turnover, VaR/CVaR.
 
-    def metrics_portfolio(self, df_portfolio) : 
-        df_metrics = pd.DataFrame()
-        df_portfolio = df_portfolio.sort_values(by='date')
-        df_portfolio['pnl_cumule'] = df_portfolio['pnl'].cumsum()
+    def metrics_portfolio(self, supabase_client) :
+        df_met = supabase_client.table("daily_portfolio_pnl").select("*").execute().data
+        df_portfolio = pd.DataFrame(df_met)
+        df_portfolio['pnl_cumule'] = df_portfolio['daily_pnl'].cumsum()
+        returns = df_portfolio['daily_pnl'][1:].values
+
         df_portfolio['rolling_max'] = df_portfolio['nav'].cummax()
         df_portfolio['drawdown'] = df_portfolio['nav'] - df_portfolio['rolling_max']
-        df_portfolio['drawdown_pct'] = df_portfolio['drawdown'] / df_portfolio['rolling_max'].replace(0, np.nan)
+        df_portfolio['drawdown_pct'] = df_portfolio['drawdown'] / df_portfolio['rolling_max'].replace(0, 0.01)
         max_drawdown = df_portfolio['drawdown_pct'].min()
-        avg_gain = df_portfolio[df_portfolio['pnl'] > 0]['pnl'].mean()
-        avg_loss = df_portfolio[df_portfolio['pnl'] < 0]['pnl'].mean()
-        sharpe_ratio = (df_portfolio['pnl'].mean() / df_portfolio['pnl'].std()) * np.sqrt(252) if df_portfolio['pnl'].std() != 0 else np.nan
-        sortino_ratio = (df_portfolio['pnl'].mean() / df_portfolio[df_portfolio['pnl'] < 0]['pnl'].std()) * np.sqrt(252) if df_portfolio[df_portfolio['pnl'] < 0]['pnl'].std() != 0 else np.nan
-        turnover = df_portfolio['transaction_costs'].sum() / df_portfolio['nav'].mean() if df_portfolio['nav'].mean() != 0 else np.nan
-        var_95 = np.percentile(df_portfolio['pnl'], 5)
-        cvar_95 = df_portfolio[df_portfolio['pnl'] <= var_95]['pnl'].mean()
-
+        avg_gain = df_portfolio[df_portfolio['daily_pnl'] > 0]['daily_pnl'].mean()
+        avg_loss = df_portfolio[df_portfolio['daily_pnl'] < 0]['daily_pnl'].mean() 
+        sharpe_ratio = (df_portfolio['daily_pnl'].mean() / df_portfolio['daily_pnl'].std()) * np.sqrt(252) if df_portfolio['daily_pnl'].std() != 0 else 0
+        sortino_ratio = (df_portfolio['daily_pnl'].mean() / df_portfolio[df_portfolio['daily_pnl'] < 0]['daily_pnl'].std()) * np.sqrt(252) if df_portfolio[df_portfolio['daily_pnl'] < 0]['daily_pnl'].std() != 0 and not np.nan else 0
+     #   turnover = df_portfolio['transaction_costs'].sum() / df_portfolio['nav'].mean() if df_portfolio['nav'].mean() != 0 else np.nan
+        var_95 = np.percentile(df_portfolio['daily_pnl'], 5) if not np.nan else 0
+        cvar_95 = df_portfolio[df_portfolio['daily_pnl'] <= var_95]['daily_pnl'].mean() if not np.nan else 0
+ 
         metrics = {
-            "date" : df_portfolio['date'].iloc[-1],
             "nav": df_portfolio['nav'].iloc[-1],
-            "pnl": df_portfolio['pnl'].iloc[-1],
+            "pnl": df_portfolio['daily_pnl'].iloc[-1],
             "max_drawdown": max_drawdown,
             "avg_gain": avg_gain,
             "avg_loss": avg_loss,
             "sharpe_ratio": sharpe_ratio,
             "sortino_ratio": sortino_ratio,
-            "turnover": turnover,
+       #     "turnover": turnover,
             "var_95": var_95,
-            "cvar_95": cvar_95
+            "cvar_95": cvar_95,
+            "kurtosis" :  kurtosis(returns),
+            'skewness':   skew(returns)
         }
-        
+        print(metrics)
+
         return metrics
+  
+    def to_metrics_portfolio(self, supabase_client, metrics) :
+        date_today = datetime.now(UTC).date().isoformat()
+        supabase_client.table("portfolio_metrics").insert({
+            "date" : date_today,
+            "nav": metrics['nav'],
+            "pnl": metrics['pnl'],
+            "max_drawdown": metrics["max_drawdown"],
+            "avg_gain": metrics["avg_gain"],
+            "avg_loss": metrics["avg_loss"],
+            "sharpe_ratio": metrics["sharpe_ratio"],
+            "sortino_ratio": metrics["sortino_ratio"],
+      #      "turnover": metrics["turnover"],
+            "var_95": metrics["var_95"],
+            "cvar_95": metrics["cvar_95"], 
+            "kurtosis" : metrics["kurtosis"], 
+             'skewness':metrics["skewness"]
+        }).execute()
+
 
 
 
@@ -438,6 +466,7 @@ class Portfolio:
             "cash_balance": self.cash_balance,
             "quantity_assets": self.quantity_assets,
             "buy_price_asset": buy_price_asset,
+            "total_sigma" : self.total_sigma,
             "total_delta": self.delta_total,
             "total_gamma": self.total_gamma,   
             "total_vega": self.total_vega,
@@ -493,7 +522,9 @@ def run_daily_strategy(supabase_client, df_daily_choice):
 
     portfolio.daily_pnl(supabase_client)
 
-    
+    #8. On calcule les métrics
+    metrics = portfolio.metrics_portfolio(supabase_client)
+    portfolio.to_metrics_portfolio(supabase_client, metrics)
     return portfolio
 
 if __name__ == "__main__":

@@ -2,7 +2,6 @@ import supabase
 import pandas as pd 
 from datetime import datetime, timedelta, timezone
 import test
-import csv
 import sys
 sys.path.append("/workspaces/finance-/build")
 UTC = timezone.utc
@@ -10,6 +9,8 @@ import finance
 from copy import deepcopy
 from dotenv import load_dotenv
 import os
+import logging
+
 load_dotenv()
 supabase_url  = os.environ.get("SUPABASE_URL")
 supabase_key = os.environ.get("SUPABASE_KEY")
@@ -37,12 +38,14 @@ def daily_choice_15(df_simulation, dte_target, delta_target, vol_min=50, oi_min=
     )
     cand = cand.sort_values(['d_delta','spread_rel','openInterest','volume'], ascending=[True, True, False, False])
     if cand.empty:
+        logging.warning(f"No candidates found for DTE target {dte_target} and delta target {delta_target}")
         return None  
     return cand.iloc[0]
 
 
 def final_pd(df_simu) :
-
+# on aurait pu vectoriser avec .apply() pour optimisation future (gain ~10x performance), c'est une fonctionnalité à implémenter 
+# Fonctionne actuellement pour datasets <1000 lignes
     for i in range(len(df_simu["bid"])) : 
         BS_para = finance.BS_parametres(df_simu["S0"].iloc[i],df_simu["strike"].iloc[i],
                                         df_simu["T"].iloc[i],df_simu["r"].iloc[i],df_simu["sigma"].iloc[i]) 
@@ -91,7 +94,7 @@ def choix_df(date_target, delta_target) :
 final = choix_df(date_target, delta_target)  #tous les jours on implémente nos données dans notre table 
 
 print(final)
-dict_daily = supabase.table("daily_choice").select("*").execute().data
+dict_daily = supabase.table("portfolio_options").select("*").execute().data
 dict_daily = pd.DataFrame(dict_daily)
 
 for x in final["contract_symbol"] :
@@ -102,29 +105,34 @@ print(final)
 
 
 for i in range(len(final)) :
-    supabase.table("daily_choice").insert({
-        "asset_id": int(final["asset_id"].iloc[i]),
-        "asof": datetime.now(UTC).date().isoformat(),
-        "contract_symbol": final["contract_symbol"].iloc[i],
-        "expiry": (final["expiry"].iloc[i]).isoformat(),
-        "strike": float(final["strike"].iloc[i]),
-        "S0": float(final["S0"].iloc[i]),
-        "T": float(final["T"].iloc[i]),
-        "r": float(final["r"].iloc[i]),
-        "sigma": float(final["sigma"].iloc[i]),
-        "delta": float(final["delta"].iloc[i]),
-        "bid": float(final["bid"].iloc[i]),
-        "ask": float(final["ask"].iloc[i]),
-        "openInterest": int(final["openInterest"].iloc[i]),
-        "volume": int(final["volume"].iloc[i]),
-        "gamma": float(final["gamma"].iloc[i]),
-        "vega": float(final["vega"].iloc[i]),
-        "theta": float(final["theta"].iloc[i]),
-        "rho": float(final["rho"].iloc[i]),
-        "BS_price": float(final["BS_price"].iloc[i]),
-        "MC_price": float(final["MC_price"].iloc[i]),
-        "CRR_price": float(final["CRR_price"].iloc[i])
-    }
-    ).execute()
+    try :
+        supabase.table("daily_choice").insert({
+            "asset_id": int(final["asset_id"].iloc[i]),
+            "asof": datetime.now(UTC).date().isoformat(),
+            "contract_symbol": final["contract_symbol"].iloc[i],
+            "expiry": (final["expiry"].iloc[i]).isoformat(),
+            "strike": float(final["strike"].iloc[i]),
+            "S0": float(final["S0"].iloc[i]),
+            "T": float(final["T"].iloc[i]),
+            "r": float(final["r"].iloc[i]),
+            "sigma": float(final["sigma"].iloc[i]),
+            "delta": float(final["delta"].iloc[i]),
+            "bid": float(final["bid"].iloc[i]),
+            "ask": float(final["ask"].iloc[i]),
+            "openInterest": int(final["openInterest"].iloc[i]),
+            "volume": int(final["volume"].iloc[i]),
+            "gamma": float(final["gamma"].iloc[i]),
+            "vega": float(final["vega"].iloc[i]),
+            "theta": float(final["theta"].iloc[i]),
+            "rho": float(final["rho"].iloc[i]),
+            "BS_price": float(final["BS_price"].iloc[i]),
+            "MC_price": float(final["MC_price"].iloc[i]),
+            "CRR_price": float(final["CRR_price"].iloc[i])
+        }
+        ).execute()
+    except Exception as e: 
+        logging.error(f"Error inserting row {i} with contract_symbol {final['contract_symbol'].iloc[i]}: {e}")
+
+
 
 

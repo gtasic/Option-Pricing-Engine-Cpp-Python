@@ -12,6 +12,8 @@ import random
 import matplotlib.pyplot as plt
 import seaborn as sns
 from copy import deepcopy
+from sklearn.linear_model import LinearRegression
+from scipy import stats
 
 
 df = backtest.final  # df avec les 15 options choisies chaque jour
@@ -19,7 +21,7 @@ df_total = test.df_simu
 df_total = df_total 
 df_total[['gamma','vega','theta','rho','BS_price','MC_price','CRR_price']] = np.nan
 print(df_total.head())
-df_total = backtest.final_pd(df_total)
+df_total = backtest.final_pd(df_total.sample(n=100))
 df_total["mid"] = (df_total["bid"] + df_total["ask"])/2
 df_total["spread"] = df_total["ask"] - df_total["bid"]
 df_total["spread_rel"] = df_total["spread"] / (df_total["mid"] + 1e-12)
@@ -171,11 +173,11 @@ def visu_greeks(df) :
     plt.savefig('greeks_vs_mid_price.png')
 
 
-
+"""
 
 visu_greeks(df_total)
 
-
+"""
 def etude_convergence_model_MCC_CRR(df, N_values=[50, 100,200, 500,750, 1000, 1500,3000,5000,7500]):
     all_results = []
     result_maes_mc = []
@@ -277,10 +279,84 @@ def visualiser_erreur_boxplot(df_long, bucket_column='maturity_bucket'):
     plt.show()
 
 
-df_utile = test.df_simu[['S0','strike','T','r','sigma','mid']]
+#df_utile = test.df_simu[['S0','strike','T','r','sigma','mid']]
 
 
 #etude_convergence_model_MCC_CRR(df_utile[df_utile["mid"]>1].sample(n=150, random_state=random.randint(0, 15)))
 
 
 
+
+def analyze_model_risk(df_total, models=['BS', 'MC', 'CRR']):
+    results = {}
+    
+    for model in models:
+        df = df_total.copy()
+        df['error'] = df[f'{model}_price'] - df['mid']
+        df['rel_error'] = df['error'] / df['mid']
+        df['moneyness'] = df['strike'] / df['S0']
+        df['dte'] = df['T'] * 365
+        
+        # 1. Analyse par moneyness bucket
+        df['money_bucket'] = pd.cut(df['moneyness'], 
+                                     bins=[0, 0.9, 0.95, 1.05, 1.1, 2.0],
+                                     labels=['Deep OTM', 'OTM', 'ATM', 'ITM', 'Deep ITM'])
+        
+        error_by_moneyness = df.groupby('money_bucket')['error'].agg(['mean', 'std', 'count'])
+        
+        # 2. Analyse par maturity bucket
+        df['maturity_bucket'] = pd.cut(df['dte'], 
+                                        bins=[0, 30, 90, 180, 365, 730],
+                                        labels=['0-30d', '30-90d', '90-180d', '180-365d', '365d+'])
+        
+        error_by_maturity = df.groupby('maturity_bucket')['error'].agg(['mean', 'std', 'count'])
+        
+        t_stat, p_value = stats.ttest_1samp(df['error'].dropna(), 0)
+        has_bias = p_value < 0.05
+        
+        X = df[['moneyness', 'dte']].dropna()
+        y = df.loc[X.index, 'error'].dropna()
+        X = X.sample(n= len(y))
+        
+        reg = LinearRegression().fit(X, y)
+        r2 = reg.score(X, y)
+        
+        results[model] = {
+            'mean_error': df['error'].mean(),
+            'mae': df['error'].abs().mean(),
+            'rmse': np.sqrt((df['error']**2).mean()),
+            "has_systematic_bias" : has_bias,
+            'bias_direction': 'overpricing' if df['error'].mean() > 0 else 'underpricing',
+            'error_by_moneyness': error_by_moneyness,
+            'error_by_maturity': error_by_maturity,
+            'r2_explainability': r2,  # % d'erreur expliquée par (K, T)
+            'coef_moneyness': reg.coef_[0],
+            'coef_maturity': reg.coef_[1]
+        }
+    
+    best_model = min(results.keys(), key=lambda m: results[m]['mae'])
+    
+    print(f"\n=== Model Risk Analysis ===\n")
+    
+    for model, res in results.items():
+        print(f"{model} Model:")
+        print(f"error by mat {res["error_by_maturity"]}")
+        print(f"error by mon {res["error_by_moneyness"]}")
+        print(f"  MAE: {res['mae']:.2f}€  |  RMSE: {res['rmse']:.2f}€")
+        print(f"  Bias: {res['bias_direction']} ({res['mean_error']:+.2f}€)")
+        print(f"  Systematic? {'Yes (p<0.05)' if res['has_systematic_bias'] else 'No'}")
+        print(f"  Error explained by (K,T): {res['r2_explainability']:.1%}\n")
+    
+    print(f"🏆 Best model: {best_model} (lowest MAE)")
+    
+    # 6. Recommandation
+    print("\n💡 Recommendations:")
+    if results['BS']['has_systematic_bias']:
+        print("- BS shows systematic bias → Consider local vol model (Dupire)")
+    if results['BS']['coef_maturity'] > 1.0:
+        print("- Error increases with maturity → Stochastic vol (Heston) recommended")
+    
+    return results
+
+# Utilisation
+model_risk_results = analyze_model_risk(df_total)

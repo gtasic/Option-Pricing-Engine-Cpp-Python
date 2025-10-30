@@ -112,3 +112,4 @@ elif selected_model == "Heston Model":
     if st.sidebar.button("Calculate Option Price"):
         st.write("Calculating option price using Heston model...")
         st.write("Option Price: [Calculated Value]")
+
