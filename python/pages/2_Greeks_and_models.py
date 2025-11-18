@@ -9,6 +9,8 @@ import supabase
 import plotly.graph_objects as go
 import os
 from dotenv import load_dotenv
+sys.path.append("/workspaces/finance-/build")
+import sabr
 
 load_dotenv()
 supabase_url  = os.environ.get("SUPABASE_URL")
@@ -19,7 +21,7 @@ supabase_client = supabase.create_client(supabase_url, supabase_key)
 
 
 
-erreur = "/workspaces/finance-/python/error_boxplot_by_maturity.png"
+erreur = "/workspaces/finance-/python/png/error_boxplot_by_maturity.png"
 
 st.title("Interface for Financial Backtesting and Option Pricing")
 st.write("This application allows users to perform backtesting of trading strategies and price options using various"
@@ -100,6 +102,8 @@ st.write("The 3D graph above represents the volatility surface, which is a three
          "Traders and analysts use the volatility surface to understand market expectations of future volatility and to identify potential mispricings in options."
          "The shape of the volatility surface can provide insights into market sentiment, with common patterns such as 'volatility smiles' "
          "or 'volatility skews' indicating varying levels of risk perception among market participants.")
+
+st.plotly_chart(sabr.plot_sabr_fit((sabr.sabr_calibration_with_diagnostics(sabr.df))))
 
 
 

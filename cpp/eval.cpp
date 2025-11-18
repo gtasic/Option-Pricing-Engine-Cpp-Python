@@ -46,6 +46,7 @@ double call_theta(BS_parametres params) {
     double term1 = - (params.S0 * norm_pdf(d1) * params.sigma) / (2.0 * std::sqrt(params.T));
     double term2 = - params.r * params.K * std::exp(-params.r * params.T) * norm_cdf(d2);
     return term1 + term2; // par an
+    
 }
 double call_rho(BS_parametres params) {
     auto [_, d2] = d1d2(params);

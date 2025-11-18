@@ -230,7 +230,7 @@ def build_option_quotes_snapshot_df(asset_id, symbol, asof):
 
 
 
-VOL_SURF_COLS = ["asset_id", "asof", "tenor", "moneyness", "iv"]
+VOL_SURF_COLS = ["asset_id","contract_symbol" ,"asof", "tenor", "moneyness", "iv"]
 
 
 def to_vol_surface(quotes_df, asset_id, symbol, asof) :
@@ -249,6 +249,7 @@ def to_vol_surface(quotes_df, asset_id, symbol, asof) :
         m = float(r["strike"]) / float(S)
         rows.append({
             "asset_id": asset_id,
+            "contract_symbol" : r["contract_symbol"],
             "asof": ensure_date(asof),
             "tenor": round(float(T), 6),
             "moneyness": round(float(m), 6),

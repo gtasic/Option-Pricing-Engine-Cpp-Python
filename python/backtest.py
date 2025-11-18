@@ -49,11 +49,11 @@ def final_pd(df_simu) :
     for i in range(len(df_simu["bid"])) : 
         BS_para = finance.BS_parametres(df_simu["S0"].iloc[i],df_simu["strike"].iloc[i],
                                         df_simu["T"].iloc[i],df_simu["r"].iloc[i],df_simu["sigma"].iloc[i]) 
-        MC_para = finance.MC_parametres()
-        MC_para.nb_simulations, MC_para.nb_paths, MC_para.S0, MC_para.K, MC_para.T, MC_para.r, MC_para.sigma = 10000,10000,df_simu["S0"].iloc[i],df_simu["strike"].iloc[i],df_simu["T"].iloc[i],df_simu["r"].iloc[i],df_simu["sigma"].iloc[i]
-        CRR_para = finance.tree_parametres()
+        MC_para = finance.MC_parametres(float(df_simu["S0"].iloc[i]),float(df_simu["strike"].iloc[i]),float(df_simu["T"].iloc[i]),float(df_simu["r"].iloc[i]),float(df_simu["sigma"].iloc[i]),10000,10000)
+      #  MC_para.nb_simulations, MC_para.nb_paths, MC_para.S0, MC_para.K, MC_para.T, MC_para.r, MC_para.sigma = 10000,10000,df_simu["S0"].iloc[i],df_simu["strike"].iloc[i],df_simu["T"].iloc[i],df_simu["r"].iloc[i],df_simu["sigma"].iloc[i]
+        CRR_para = finance.tree_parametres(df_simu["S0"].iloc[i],df_simu["strike"].iloc[i],df_simu["T"].iloc[i],df_simu["r"].iloc[i],df_simu["sigma"].iloc[i], 1000)
         
-        CRR_para.S0, CRR_para.K, CRR_para.T, CRR_para.r, CRR_para.sigma, CRR_para.N = df_simu["S0"].iloc[i],df_simu["strike"].iloc[i],df_simu["T"].iloc[i],df_simu["r"].iloc[i],df_simu["sigma"].iloc[i], 1000
+       # CRR_para.S0, CRR_para.K, CRR_para.T, CRR_para.r, CRR_para.sigma, CRR_para.N = df_simu["S0"].iloc[i],df_simu["strike"].iloc[i],df_simu["T"].iloc[i],df_simu["r"].iloc[i],df_simu["sigma"].iloc[i], 1000
 
         df_simu["gamma"].iloc[i] = finance.call_gamma(BS_para)
         df_simu["vega"].iloc[i] = finance.call_vega(BS_para)

@@ -255,10 +255,10 @@ class Portfolio:
             print("Aucune position ouverte trouvée dans le portefeuille.")
             return
         
-        response2 = client_supabase.table("simulation_params").select("*").execute()
+        response2 = client_supabase.table("simulation_params").select("*").eq("asof", datetime.now(UTC).date().isoformat()).execute()
         simu_params = response2.data
         df_simu = pd.DataFrame(simu_params)
-        df_simu = df_simu[df_simu['asof'] == datetime.now(UTC).date().isoformat()]
+     #   df_simu = df_simu[df_simu['asof'] == datetime.now(UTC).date().isoformat()]
         df_simu[['gamma','vega','theta','rho','BS_price','MC_price','CRR_price']] = np.nan
         df_simu = backtest.final_pd(df_simu)
         df_simu["prix"] = (df_simu["bid"] + df_simu["ask"])/2
@@ -420,10 +420,10 @@ class Portfolio:
        #     "turnover": turnover,
             "var_95": var_95,
             "cvar_95": cvar_95,
-            "kurtosis" :  kurtosis(returns),
-            'skewness':   skew(returns)
+            "kurtosis" :  kurtosis(returns) if not np.nan else 0,
+            'skewness':   skew(returns) if not np.nan else 0
         }
-        print(metrics)
+
 
         return metrics
   
@@ -442,7 +442,7 @@ class Portfolio:
             "var_95": metrics["var_95"],
             "cvar_95": metrics["cvar_95"], 
             "kurtosis" : metrics["kurtosis"], 
-             'skewness':metrics["skewness"]
+             'skewness':metrics["skewness"] if not np.nan else 0
         }).execute()
 
 

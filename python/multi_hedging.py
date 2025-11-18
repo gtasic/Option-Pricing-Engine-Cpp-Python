@@ -12,7 +12,7 @@ supabase_client = supabase.create_client(supabase_url, supabase_key)
 class MultiGreeksHedger:
     def __init__(self, portfolio, available_options):
         self.portfolio = portfolio  # Les positions actuelles donc les portfolio_options open
-        self.hedging_instruments = available_options  # Options du marché disopnibles donc backtest.final
+        self.hedging_instruments = available_options  # Options du marché disopnibles donc dans backtest.final
     
     def compute_hedge_positions(self, target_delta=0, target_gamma=0, target_vega=0):
         
@@ -21,8 +21,7 @@ class MultiGreeksHedger:
         current_gamma = 1.6  #self.portfolio.total_gamma
         current_vega = 5700 #self.portfolio.total_vega
         
-        # Instruments de hedge (2-3 options ATM de maturités différentes)
-        hedge_opts = self.hedging_instruments[:3]
+        hedge_opts = self.hedging_instruments[:]
         
         def objective(quantities):
             cost = sum(abs(q) * opt.CRR_price * 0.001 for q, opt in zip(quantities, hedge_opts.itertuples()))

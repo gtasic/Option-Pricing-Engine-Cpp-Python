@@ -36,6 +36,36 @@ PYBIND11_MODULE(finance, m) {
     py::class_<D>(m, "D")
       .def_readonly("d1", &D::d1)
       .def_readonly("d2", &D::d2);
+    
+      py::class_<HestonParams>(m, "HestonParams")
+        .def(py::init<double,double,double,double,double,double, double>())
+        .def_readwrite("S0", &HestonParams::S0)
+        .def_readwrite("v0",  &HestonParams::v0)
+        .def_readwrite("r",  &HestonParams::r)
+        .def_readwrite("kappa",  &HestonParams::kappa)
+        .def_readwrite("theta", &HestonParams::theta)
+        .def_readwrite("sigma", &HestonParams::sigma)
+        .def_readwrite("rho",  &HestonParams::rho);
+    
+          py::class_<MCResult>(m, "MCResult")
+      .def(py::init<double,double,double,double,int,double>())
+      .def_readwrite("price", &MCResult::price)
+      .def_readwrite("std_error",  &MCResult::std_error)
+      .def_readwrite("conf95_low",  &MCResult::conf95_low)
+      .def_readwrite("conf95_high",  &MCResult::conf95_high)
+      .def_readwrite("n_paths", &MCResult::n_paths)
+      .def_readwrite("runtime_seconds",  &MCResult::runtime_seconds);
+
+    py::class_<RNGWrapper>(m, "RNGWrapper")
+        .def(py::init<unsigned long long>())
+        .def("next_normal", &RNGWrapper::next_normal);
+
+
+
+    
+
+
+      
 
     // Utils
     m.def("inv_sqrt_2pi", static_cast<double(*)()>(&inv_sqrt_2pi));
@@ -62,4 +92,23 @@ PYBIND11_MODULE(finance, m) {
           static_cast<double(*)(const MC_parametres&)>(&monte_carlo_call));
     m.def("tree",
           static_cast<double(*)(tree_parametres)>(&tree));
+    m.def("price_european_call_mc", &price_european_call_mc,
+          py::arg("params"),
+          py::arg("K"),
+          py::arg("T"),
+          py::arg("M"),
+          py::arg("N"),
+          py::arg("seed") = 42ULL,
+          py::arg("antithetic") = false);
+
+
+    m.def("simulate_one_path_call",
+          &simulate_one_path_call,
+          py::arg("params"),
+          py::arg("K"),
+          py::arg("T"),
+          py::arg("M"),
+          py::arg("rngw") ,
+          py::arg("antithetic") = false );
+  
 }

@@ -9,6 +9,7 @@
 
 
 // Structure des paramètres du modèle
+/*
 struct HestonParams {
     double S0;    // prix initial du sous-jacent
     double v0;    // variance initiale
@@ -18,14 +19,27 @@ struct HestonParams {
     double sigma; // vol de la variance (vol-of-vol)
     double rho;   // corrélation entre S et v
 };
+*/
+
+RNGWrapper::RNGWrapper(unsigned long long seed)
+    : rng(seed), nd(0.0, 1.0)
+{
+
+}
+
+double RNGWrapper::next_normal() {
+    return nd(rng);
+}
 
 double simulate_one_path_call(
     const HestonParams &p,
     double K,
     double T,
-    int M,                    // nombre de steps
-    std::mt19937_64 &rng,
-    std::normal_distribution<double> &nd
+    int M,              // nombre de steps
+    RNGWrapper &rngw,
+    bool antithetic 
+   // std::mt19937_64 &rng,
+   //std::normal_distribution<double> &nd
 ) {
     double dt = T / static_cast<double>(M);
     double sqrt_dt = std::sqrt(dt);
@@ -35,8 +49,14 @@ double simulate_one_path_call(
 
     for (int i = 0; i < M; ++i) {
         // normals indépendants
-        double Z1 = nd(rng);
-        double Z3 = nd(rng);
+        double Z1 = rngw.next_normal();
+        double Z3 = rngw.next_normal();
+
+    if (antithetic) { // <── inversion des signes
+        Z1 = -Z1;
+        Z3 = -Z3;
+        }
+
         // corrélé
         double Z2 = p.rho * Z1 + std::sqrt(1.0 - p.rho * p.rho) * Z3;
 
@@ -58,6 +78,7 @@ double simulate_one_path_call(
 }
 
 // Monte Carlo pricing (calls simulate_one_path_call)
+/*
 struct MCResult {
     double price;
     double std_error;
@@ -66,6 +87,7 @@ struct MCResult {
     int n_paths;
     double runtime_seconds;
 };
+*/
 
 MCResult price_european_call_mc(
     const HestonParams &p,
@@ -73,11 +95,12 @@ MCResult price_european_call_mc(
     double T,
     int M,
     int N,                     // nombre de chemins
-    unsigned long long seed = 42ULL,
-    bool antithetic = false
+    unsigned long long seed ,
+    bool antithetic 
 ) {
-    std::mt19937_64 rng(seed);
-    std::normal_distribution<double> nd(0.0, 1.0);
+  //  std::mt19937_64 rng(seed);
+  //  std::normal_distribution<double> nd(0.0, 1.0);
+    RNGWrapper rngw(seed);
 
     std::vector<double> payoffs;
     payoffs.reserve(N);
@@ -86,17 +109,17 @@ MCResult price_european_call_mc(
 
     if (!antithetic) {
         for (int i = 0; i < N; ++i) {
-            double payoff = simulate_one_path_call(p, K, T, M, rng, nd);
+            double payoff = simulate_one_path_call(p, K, T, M, rngw);
             payoffs.push_back(std::exp(-p.r * T) * payoff);
         }
     } else {
 
         for (int i = 0; i < N; i += 2) {
-            double payoff1 = simulate_one_path_call(p, K, T, M, rng, nd);
-            std::mt19937_64 local_rng(rng()); 
-            std::normal_distribution<double> local_nd(0.0, 1.0);
+            double payoff1 = simulate_one_path_call(p, K, T, M, rngw);
+         //   std::mt19937_64 local_rng(rng()); 
+       //     std::normal_distribution<double> local_nd(0.0, 1.0);
 
-            double payoff2 = simulate_one_path_call(p, K, T, M, local_rng, local_nd);
+            double payoff2 = simulate_one_path_call(p, K, T, M, rngw, /*antithetic=*/true);
 
             payoffs.push_back(std::exp(-p.r * T) * payoff1);
             if ((int)payoffs.size() < N) // only push second if needed
@@ -131,18 +154,18 @@ MCResult price_european_call_mc(
 int main() {
     // Exemple de paramètres
     HestonParams p;
-    p.S0 = 100.0;
-    p.v0 = 0.04;   // variance initiale (0.2^2)
-    p.r = 0.01;
-    p.kappa = 2.0;
-    p.theta = 0.04;
-    p.sigma = 0.3;
-    p.rho = -0.7;
+    p.S0 = 100.0;  // le prix du sous-jacent 
+    p.v0 = 0.04;  // la variance ini
+    p.r = 0.01;// le taux d'inérêt
+    p.kappa = 2.0;  // la vitesse de variance
+    p.theta = 0.04; //
+    p.sigma = 0.3; // la vol
+    p.rho = -0.7;  // le greeks rho
 
     double K = 100.0;
     double T = 1.0;    // maturité en années
     int M = 252;       // steps (journaliers)
-    int N = 200000;    // chemins Monte Carlo (à ajuster selon ta machine)
+    int N = 20000;    // chemins Monte Carlo 
     unsigned long long seed = 123456789ULL;
 
     std::cout << std::fixed << std::setprecision(6);

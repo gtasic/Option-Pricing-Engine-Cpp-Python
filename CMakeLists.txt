@@ -11,6 +11,7 @@ pybind11_add_module(finance
     cpp/eval.cpp
     cpp/tree.cpp
     cpp/monte_carlo.cpp
+    cpp/heston.cpp
     
 )
 
