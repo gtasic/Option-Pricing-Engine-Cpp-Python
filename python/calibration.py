@@ -8,6 +8,7 @@ import supabase
 import os
 from dotenv import load_dotenv
 load_dotenv()
+import backtest as bt
 
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_KEY")
@@ -15,7 +16,10 @@ supabase_client = supabase.create_client(supabase_url, supabase_key)
 
 def calibrate_heston_to_surface(vol_surface_df, S0, r):
     print(vol_surface_df)
-    market_data = vol_surface_df[['moneyness', 'tenor', 'iv']].copy()
+    try : 
+        market_data = vol_surface_df[['moneyness', 'T', 'sigma']].copy()
+    except KeyError:
+        market_data = vol_surface_df[['moneyness', 'tenor', 'iv']].copy()
     market_data["moneyness"] = market_data["moneyness"] * S0
     market_data = market_data.values
 
@@ -75,13 +79,16 @@ vol_surface_df = pd.DataFrame(vol.data)
 print(vol_surface_df[:5])
 price = supabase_client.table("prices").select("*").execute()
 price_df = pd.DataFrame(price.data)
+
 prix = price_df["close"].iloc[-1]
-calibrated_params = calibrate_heston_to_surface(vol_surface_df.sample(n=10), prix, r=0.04)
+
+"""bt.final["moneyness"] = bt.final["strike"] / prix
+calibrated_params = calibrate_heston_to_surface(bt.final, prix, r=0.04)
 print(f"Heston calibrated: κ={calibrated_params['kappa']:.2f}, "
       f"θ={calibrated_params['theta']:.4f}, RMSE={calibrated_params['rmse']:.2f}€ "
       f"sigma_v={calibrated_params['sigma_v']:.4f}, v0={calibrated_params['v0']:.4f}, rho={calibrated_params['rho']:.4f}")
-
-import numpy as np
+"""
+"""import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -101,7 +108,6 @@ params = {
     'rho': -0.4568
 }
 
-# ---- Grille de test ----
 moneyness_grid = np.linspace(0.7, 1.3, 20)
 tenor_grid = np.linspace(0.02, 1.0, 10)
 
@@ -160,3 +166,4 @@ plt.savefig("heston.png")
 
 
 
+"""

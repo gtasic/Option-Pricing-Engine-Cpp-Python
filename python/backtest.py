@@ -19,7 +19,9 @@ supabase_key = os.environ.get("SUPABASE_KEY")
 supabase = supabase.create_client(supabase_url, supabase_key)
 
 date_target = [7,30,60,90,180]
-delta_target = [0.25,0.5, 0.81]
+delta_target = [0.10,0.25,0.5,0.75, 0.9]
+
+date_target_arbitrage = [7,14,21,30,40]  #les dates pour l'arbitrage complexe
 
 asof = datetime.now(timezone.utc).date() 
 

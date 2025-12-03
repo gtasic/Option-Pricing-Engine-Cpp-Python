@@ -103,7 +103,10 @@ st.write("The 3D graph above represents the volatility surface, which is a three
          "The shape of the volatility surface can provide insights into market sentiment, with common patterns such as 'volatility smiles' "
          "or 'volatility skews' indicating varying levels of risk perception among market participants.")
 
-st.plotly_chart(sabr.plot_sabr_fit((sabr.sabr_calibration_with_diagnostics(sabr.df))))
+st.header("SABR Model Calibration")
+st.write("The SABR (Stochastic Alpha Beta Rho) model is a popular stochastic volatility model used to capture the dynamics of implied volatility surfaces in the options market."
+         "It is particularly useful for modeling the volatility smile observed in interest rate options and other asset classes."
+         "In this section, we present the calibration of the SABR model to market data, demonstrating its effectiveness in fitting the observed implied volatilities.")
 
 
 

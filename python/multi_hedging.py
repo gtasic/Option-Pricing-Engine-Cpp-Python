@@ -5,13 +5,14 @@ from dotenv import load_dotenv
 load_dotenv()
 import pandas as pd
 import backtest
+import delta_hedging as dh
 supabase_key = os.getenv("SUPABASE_KEY")
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_client = supabase.create_client(supabase_url, supabase_key)
 
 class MultiGreeksHedger:
-    def __init__(self, portfolio, available_options):
-        self.portfolio = portfolio  # Les positions actuelles donc les portfolio_options open
+    def __init__(self, portfolio,available_options):
+        self.portfolio = portfolio # Les positions actuelles donc les portfolio_options open
         self.hedging_instruments = available_options  # Options du marché disopnibles donc dans backtest.final
     
     def compute_hedge_positions(self, target_delta=0, target_gamma=0, target_vega=0):
@@ -53,7 +54,8 @@ class MultiGreeksHedger:
                 opt.contract_symbol: qty 
                 for opt, qty in zip(hedge_opts.itertuples(), result.x) if abs(qty) > 0.01
             }
-            return hedge_positions, result.fun
+            final_quantities = round(result.x)
+            return hedge_positions, final_quantities
         else:
             return self._delta_hedge_only(), None
     
@@ -70,7 +72,7 @@ df_available_options = backtest.final
 hedger = MultiGreeksHedger(df_portfolio, df_available_options)
 hedge_trades, transaction_cost = hedger.compute_hedge_positions(
     target_delta=0, 
-    target_gamma=0.05,  
+    target_gamma=0.3,  
     target_vega=0
 )
 
