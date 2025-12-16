@@ -15,7 +15,7 @@ PYBIND11_MODULE(finance, m) {
       .def_readwrite("sigma", &BS_parametres::sigma);
 
     py::class_<MC_parametres>(m, "MC_parametres")
-      .def(py::init<double,double,double,double,double,int,int>())
+      .def(py::init<int,int,double,double,double,double,double>())
       .def_readwrite("nb_simulations", &MC_parametres::nb_simulations)
       .def_readwrite("nb_paths", &MC_parametres::nb_paths)
       .def_readwrite("S0", &MC_parametres::S0)

@@ -48,10 +48,11 @@ def daily_choice_15(df_simulation, dte_target, delta_target, vol_min=50, oi_min=
 def final_pd(df_simu) :
 # on aurait pu vectoriser avec .apply() pour optimisation future (gain ~10x performance), c'est une fonctionnalité à implémenter 
 # Fonctionne actuellement pour datasets <1000 lignes
-    for i in range(len(df_simu["bid"])) : 
+    df_simu["r"] = 0.04
+    for i in range(len(df_simu["S0"])) : 
         BS_para = finance.BS_parametres(df_simu["S0"].iloc[i],df_simu["strike"].iloc[i],
                                         df_simu["T"].iloc[i],df_simu["r"].iloc[i],df_simu["sigma"].iloc[i]) 
-        MC_para = finance.MC_parametres(float(df_simu["S0"].iloc[i]),float(df_simu["strike"].iloc[i]),float(df_simu["T"].iloc[i]),float(df_simu["r"].iloc[i]),float(df_simu["sigma"].iloc[i]),10000,10000)
+        MC_para = finance.MC_parametres(10000,10000,float(df_simu["S0"].iloc[i]),float(df_simu["strike"].iloc[i]),float(df_simu["T"].iloc[i]),float(df_simu["r"].iloc[i]),float(df_simu["sigma"].iloc[i]))
       #  MC_para.nb_simulations, MC_para.nb_paths, MC_para.S0, MC_para.K, MC_para.T, MC_para.r, MC_para.sigma = 10000,10000,df_simu["S0"].iloc[i],df_simu["strike"].iloc[i],df_simu["T"].iloc[i],df_simu["r"].iloc[i],df_simu["sigma"].iloc[i]
         CRR_para = finance.tree_parametres(df_simu["S0"].iloc[i],df_simu["strike"].iloc[i],df_simu["T"].iloc[i],df_simu["r"].iloc[i],df_simu["sigma"].iloc[i], 1000)
         
@@ -61,7 +62,7 @@ def final_pd(df_simu) :
         df_simu["vega"].iloc[i] = finance.call_vega(BS_para)
         df_simu[ "theta"].iloc[i] = finance.call_theta(BS_para)
         df_simu[ "rho"].iloc[i] = finance.call_rho(BS_para)
-        df_simu[ "BS_price"].iloc[i] = finance.call_price(BS_para)
+        df_simu[ "BS_price"].iloc[i] = finance.call_price(BS_para) 
         df_simu[ "MC_price"].iloc[i] = finance.monte_carlo_call(MC_para)
         df_simu[ "CRR_price"].iloc[i] = finance.tree(CRR_para)
 

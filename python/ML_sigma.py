@@ -166,7 +166,7 @@ if processed_days:
 else:
     print("❌ Aucun jour n'a pu être traité.")
 df_train_ready = df_train_ready.dropna()
-df_train_ready.to_csv("df_train_ready.csv", index=False)
+df_train_ready.to_csv("df_train_ready_good.csv", index=False)
 
 
 features = ["tenor","moneyness","iv",
@@ -188,11 +188,12 @@ y_test = df_final[target].iloc[split_index:]
 
 
 model = xgb.XGBRegressor(
-    n_estimators=10000,       
-    learning_rate=0.05,      
-    max_depth=10,             
-    subsample=0.8,           
-    colsample_bytree=0.8,    
+    n_estimators=1000,       
+    learning_rate=0.01,      
+    max_depth=3,
+    min_child_weight=2,             
+    subsample=0.7,           
+    colsample_bytree=0.7 ,    
     objective='reg:squarederror',
     random_state=42,
     n_jobs=-1
@@ -200,6 +201,8 @@ model = xgb.XGBRegressor(
 
 model.fit(
     X_train, y_train, 
+    eval_set=[(X_train, y_train), (X_test, y_test)],
+    verbose=True
 )
 
 
