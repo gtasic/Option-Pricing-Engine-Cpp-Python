@@ -61,6 +61,7 @@ class Portfolio:
             self.cash_balance -= cout_total_option1
             cout_total_option2 = option2['mid'] * 10 * (1 + self.transaction_costs_rate)
             self.cash_balance -= cout_total_option2
+            cout_frais = option1['mid'] * 10 * self.transaction_costs_rate + option2['mid'] * 10 * self.transaction_costs_rate
             print(f"Coût total pour l'achat de 10 unités de chaque option (avec frais) : {cout_total_option1 + cout_total_option2:.2f} EUR")
 
 
@@ -200,6 +201,7 @@ class Portfolio:
             prix_fermeture_cash = payoff * quantity
             
             cash_recu = prix_fermeture_cash * (1 - self.transaction_costs_rate)
+            frais = prix_fermeture_cash * self.transaction_costs_rate
             self.cash_balance += cash_recu
     #        CURRENT_NAV -= prix_fermeture_cash  # On retire la valeur des options fermées de la NAV
             supabase_client.table("portfolio_options").update({
@@ -293,7 +295,7 @@ class Portfolio:
         self.total_vega = sum(pos['vega'] * pos['quantity'] for pos in open_positions)
         self.total_theta = sum(pos['theta'] * pos['quantity'] for pos in open_positions)
         self.total_rho = sum(pos['rho'] * pos['quantity'] for pos in open_positions)
-        self.total_sigma = sum(pos['sigma'] * pos['quantity'] for pos in open_positions)
+        self.total_sigma = sum(pos['sigma']  for pos in open_positions)/len(open_positions) if len(open_positions)>0 else 0.0
 
 
         delta_actif = self.quantity_assets
@@ -322,7 +324,7 @@ class Portfolio:
 
         cout_transaction = quantite_actif_achat * prix_actif * (1+self.transaction_costs_rate) if quantite_actif_achat >0 else quantite_actif_achat * prix_actif * (1 - self.transaction_costs_rate)
         cout_total = abs(quantite_actif_achat) * prix_actif * (1 + self.transaction_costs_rate)
-
+        frais_transaction = abs(quantite_actif_achat) * prix_actif * self.transaction_costs_rate
     #    CURRENT_NAV += quantite_actif_achat * prix_actif - cout_transaction  # Met à jour la valeur actuelle du portefeuille après l'achat/vente et les frais de transaction
         self.cash_balance-= cout_transaction  # Met à jour le cash disponible après l'achat/vente et les frais de transaction
 
@@ -338,17 +340,18 @@ class Portfolio:
     def daily_pnl(self, supabase_client):
         response = supabase_client.table("daily_portfolio_pnl").select("*").order("asof", desc=True).limit(2).execute()
         values = response.data
+        val = pd.DataFrame(values)
         asof = datetime.now(UTC).date().isoformat()
 
         if len(values) < 2:
             print("Pas assez de données pour calculer le PnL quotidien.")
             return None
 
-        pnl = values[0]['nav'] - values[1]['nav']
+        pnl = val['nav'].iloc[-1] - val['nav'].iloc[-2]
         print(f"PnL quotidien : {pnl:.2f} EUR")
         supabase_client.table("daily_portfolio_pnl").update({
             "daily_pnl": float(pnl)
-        }).eq("asof", values[0]['asof']).execute()
+        }).eq("asof", val['asof'].iloc[-1]).execute()
         return pnl
 
 
@@ -420,12 +423,66 @@ class Portfolio:
        #     "turnover": turnover,
             "var_95": var_95,
             "cvar_95": cvar_95,
-            "kurtosis" :  kurtosis(returns) if not np.nan else 0,
-            'skewness':   skew(returns) if not np.nan else 0
+            "kurtosis" :  kurtosis(returns) ,
+            'skewness':   skew(returns) 
         }
 
 
         return metrics
+    
+
+
+
+    def metrics_portfolio(self, supabase_client):
+        data = supabase_client.table("daily_portfolio_pnl").select("*").execute().data
+        df = pd.DataFrame(data)
+        
+        df['daily_pnl'] = pd.to_numeric(df['daily_pnl'], errors='coerce').fillna(0)
+        df['nav'] = pd.to_numeric(df['nav'], errors='coerce')
+        df['pnl_cumule'] = df['daily_pnl'].cumsum()
+        df['rolling_max'] = df['nav'].cummax()
+        df['drawdown'] = df['nav'] - df['rolling_max']
+        df['drawdown_pct'] = df['drawdown'] / df['rolling_max'].replace(0, np.nan)        
+        avg_gain = df[df['daily_pnl'] > 0]['daily_pnl'].mean()
+        avg_loss = df[df['daily_pnl'] < 0]['daily_pnl'].mean()
+        std_dev = df['daily_pnl'].std()        
+        negative_returns = df[df['daily_pnl'] < 0]['daily_pnl']
+        downside_std = negative_returns.std()
+
+        if std_dev > 0:
+            sharpe_ratio = (df['daily_pnl'].mean() / std_dev) * np.sqrt(252)
+        else:
+            sharpe_ratio = 0
+        if pd.notna(downside_std) and downside_std > 0:
+            sortino_ratio = (df['daily_pnl'].mean() / downside_std) * np.sqrt(252)
+        else:
+            sortino_ratio = 0
+        if len(df) > 5: 
+            var_95 = np.nanpercentile(df['daily_pnl'], 5) 
+            
+            cvar_95 = df[df['daily_pnl'] <= var_95]['daily_pnl'].mean()
+        else:
+            var_95 = 0
+            cvar_95 = 0    
+        skewness = df['daily_pnl'].skew()
+        kurtosis = df['daily_pnl'].kurtosis()
+
+        return {
+            "nav": df['nav'].iloc[-1],
+            "pnl": df['daily_pnl'].iloc[-1],
+            "max_drawdown": df['drawdown_pct'].min(),
+            "sharpe_ratio": sharpe_ratio,
+            "sortino_ratio": sortino_ratio,
+            "var_95": var_95,
+            "cvar_95": cvar_95 if pd.notna(cvar_95) else 0,
+            "skewness": skewness if pd.notna(skewness) else 0,
+            "kurtosis": kurtosis if pd.notna(kurtosis) else 0,
+            "avg_gain": avg_gain if pd.notna(avg_gain) else 0,
+            "avg_loss": avg_loss if pd.notna(avg_loss) else 0
+        }
+
+
+
   
     def to_metrics_portfolio(self, supabase_client, metrics) :
         date_today = datetime.now(UTC).date().isoformat()
@@ -439,10 +496,10 @@ class Portfolio:
             "sharpe_ratio": metrics["sharpe_ratio"],
             "sortino_ratio": metrics["sortino_ratio"],
       #      "turnover": metrics["turnover"],
-            "var_95": metrics["var_95"],
-            "cvar_95": metrics["cvar_95"], 
+            "var_95": metrics["var_95"]  ,
+            "cvar_95": metrics["cvar_95"]  , 
             "kurtosis" : metrics["kurtosis"], 
-             'skewness':metrics["skewness"] if not np.nan else 0
+             'skewness':metrics["skewness"] 
         }).execute()
 
 

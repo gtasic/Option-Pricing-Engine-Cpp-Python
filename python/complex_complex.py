@@ -38,6 +38,7 @@ class ComplexPortfolio:
         self.total_rho = total_rho
         self.total_sigma = total_sigma
         self.daily_pnl = 0.0
+        self.frais = 0.0
      
 
 
@@ -46,6 +47,8 @@ class ComplexPortfolio:
         options = client_supabase.table("vol_surfaces").select("*").eq("asof",asof).execute()
         options = options.data
         df_final = pd.DataFrame(options)
+        df_final = df_final[df_final['iv']< 0.7]
+        
 
         def prepare_ml_features(df_day, heston_params, sabr_params_by_maturity, spot_price):
             df = df_day.copy()
@@ -75,14 +78,15 @@ class ComplexPortfolio:
                     continue 
                 if T in sabr_params_by_maturity:
                     params = sabr_params_by_maturity[T]
-                df.at[idx, 'S_alpha'] = params['alpha']
-                df.at[idx, 'S_rho'] = params['rho']
-                df.at[idx, 'S_nu'] = params['nu']
-                try:
-                    theo_iv = sabr.sabr_vol(K, spot_price, T, params['alpha'], 0.5, params['rho'], params['nu'])
-                    df.at[idx, 'S_theoretical_iv'] = theo_iv
-                except:
-                    df.at[idx, 'S_theoretical_iv'] = row['iv'] 
+                    df.at[idx, 'S_alpha'] = params['alpha']
+                    df.at[idx, 'S_rho'] = params['rho']
+                    df.at[idx, 'S_nu'] = params['nu']
+                    try:
+                        theo_iv = sabr.sabr_vol(K, spot_price, T, params['alpha'], 0.5, params['rho'], params['nu'])
+                        df.at[idx, 'S_theoretical_iv'] = theo_iv
+                    except:
+                        #df.at[idx, 'S_theoretical_iv'] = row['iv'] 
+                        pass
             df['SABR_Edge'] = df['iv'] - df['S_theoretical_iv']
             
             return df
@@ -104,7 +108,7 @@ class ComplexPortfolio:
             except Exception as e:
                 print(f"⚠️ Fail Heston {date}: {e}")
                 h_params = {'kappa': 2.0, 'theta': 0.04, 'sigma_v': 0.3, 'rho': -0.7}
-
+            
             day_maturities = df_day['tenor'].unique()
             print(f"Les maturités disponibles pour le {date} sont : ", day_maturities)
             sabr_dict_day = {} 
@@ -152,7 +156,7 @@ class ComplexPortfolio:
         else:
             print("❌ Aucun jour n'a pu être traité.")
         df_train_ready = df_train_ready.dropna()
-        df_train_ready.to_csv("df_for_ml.csv", index=False)
+        df_train_ready.to_csv("png/df_for_ml.csv", index=False)
         df_train_ready["log_moneyness"] = np.log(df_train_ready["moneyness"])
 
         df["log_returns"] = np.log(df['close'] / df['close'].shift(1))
@@ -214,7 +218,7 @@ class ComplexPortfolio:
 
         asof_str = datetime.now(timezone.utc).date().isoformat()
         rows_to_drop = []
-        response = supabase_client.table("portfolio_options").select("*").eq("statut", "open").execute()
+        response = supabase_client.table("complex_portfolio_options").select("*").eq("statut", "open").execute()
         open_positions = response.data
 
         for index, row in self.options_list.iterrows():
@@ -229,7 +233,7 @@ class ComplexPortfolio:
 
                 cost = abs(cash) * self.transaction_costs
                 net_cash = cash - cost
-
+                self.frais += cost
                 self.cash_position +=net_cash  
 
                 supabase_client.table("complex_portfolio_options").update({
@@ -255,7 +259,7 @@ class ComplexPortfolio:
         self.total_vega = (df_options["vega"] * df_options["quantity"]).sum()
         self.total_theta = (df_options["theta"] * df_options["quantity"]).sum()
         self.total_rho = (df_options["rho"] * df_options["quantity"]).sum()
-        self.total_sigma = (df_options["sigma"] * df_options["quantity"]).sum()
+        self.total_sigma = sum(pos['sigma']  for pos in reponse)/len(reponse) if len(reponse)>0 else 0.0
 
     
     def delta_hedging(self, supabase_client, S0) : 
@@ -266,7 +270,7 @@ class ComplexPortfolio:
         if(abs(diff_quantity)>0.5):
             cost = diff_quantity*S0
             frais = abs(cost)*self.transaction_costs
-
+            self.frais += frais
             self.cash_position -= (cost+frais)
             self.quantity_assets+=diff_quantity
 
@@ -293,21 +297,22 @@ class ComplexPortfolio:
         model.load_model("volatility_model_v1.json") 
         y_pred = model.predict(df[features])
         df["predicted_iv"] = y_pred
-        df["iv_diff"] = df["iv"] - df["predicted_iv"]
-        options_available_sorted = df.sort_values(by="iv_diff", ascending=False)
+        df["iv_diff"] =  df["predicted_iv"] - df["iv"] 
+        df = df.sort_values(by="iv_diff", ascending=False)
         
         if df[df["iv_diff"] > 0].empty: 
             print("Aucune possibilité d'aribitrage détectée.")
         
         else :
             print("Options mispricées détectées pour arbitrage.")
-        df.to_csv("final_pred.csv")
+        df.to_csv("complex_final_pred.csv")
         return df
 
     def mispriced_options_without_ML(self,supabase_client,df):
         if self.options_list is not None and not getattr(self.options_list, 'empty', True):
             df = df[~df["contract_symbol"].isin(self.options_list["contract_symbol"]) ]
         options_sorted = df.sort_values("SABR_Edge", ascending=False).copy()
+        print("Options triées par SABR EDGE\n", options_sorted[["contract_symbol","iv","S_theoretical_iv","SABR_Edge"]])
         return options_sorted  #En l'absence d'une quantité suffisante de données, on se concentre sur la différence de SABR 
         
     
@@ -317,7 +322,6 @@ class ComplexPortfolio:
         options_sorted["S0"] = S0
         options_sorted[['gamma','vega','theta','rho','BS_price','MC_price','CRR_price']] = np.nan
 
-        # ensure columns expected by backtest.final_pd are present
         if "tenor" in options_sorted.columns and "T" not in options_sorted.columns:
             options_sorted = options_sorted.rename(columns={"tenor": "T"})
         if "S0" not in options_sorted.columns:
@@ -360,11 +364,11 @@ class ComplexPortfolio:
                                                                                 "rho":option["rho"],
                                                                                 "SABR_Edge": option["SABR_Edge"],
                                                                                 "vol_ouverture": option["iv"],
-                                                                                "comments": f"ouverte le {asof} pour une quantité {option.get('quantity',10)} pour un prix de {(option.get('price') if 'price' in option else (option.get('ask',0)+option.get('bid',0))/2)} avec un objectif de diff de vol de {option.get('SABR_Edge',0)}" ,
+                                                                                "comments": f"ouverte le {asof} pour une quantité {option.get('quantity',10)} pour un prix de {(option.get('price') if 'price' in option else (option.get('ask',0)+option.get('bid',0))/2)} avec un objectif de diff de vol de {option.get('SABR_Edge',0):.4f}" ,
                                                                                 "statut" : "open"}).execute() 
                 
                 print(f"Option intégré au portefeuille {option['contract_symbol']}")
-                self.cash_position -= option["prix"]*option["quantity"]
+                self.cash_position -= option["BS_price"]*10
 
                 new_row = option.to_dict()
                 new_row["quantity"] = 10
@@ -377,7 +381,7 @@ class ComplexPortfolio:
         
     
 
-    def multi_greeks_hedging(self, supabase_client, target_gamma = (50,200)):
+    def multi_greeks_hedging(self, supabase_client, target_gamma = (0,6)):
         
         current_delta = self.total_delta
         current_gamma = self.total_gamma    
@@ -398,7 +402,7 @@ class ComplexPortfolio:
     
     
         def objective(quantities):
-            cost = sum(abs(q) * opt.CRR_price * 0.001 for q, opt in zip(quantities, hedge_options.itertuples()))
+            cost = sum(abs(q) * opt.BS_price * 0.001 for q, opt in zip(quantities, hedge_options.itertuples()))
             return cost
         
         def constraint_delta(quantities):
@@ -453,6 +457,7 @@ class ComplexPortfolio:
                 continue
             option_price = prix_option_response.data[0]['CRR_price']
             transaction_costs = abs(quantity) * option_price * self.transaction_costs
+            self.frais += transaction_costs
             self.cash_position -= quantity * option_price + transaction_costs
         self.greeks_calcul(supabase_client)  # Met à jour les grecs après le rééquilibrage
     
@@ -471,7 +476,9 @@ class ComplexPortfolio:
             "total_vega" : self.total_vega,
             "total_sigma" : self.total_sigma,
             "total_rho" : self.total_rho ,
-            "cash_position" : self.cash_position
+            "total_theta" : self.total_theta,
+            "cash_position" : self.cash_position,
+            "frais" : self.frais    
 
         }).execute()
 
@@ -485,7 +492,7 @@ class ComplexPortfolio:
     @classmethod
     def portfolio_builder(cls, supabase_client):
         try :
-            reponse = supabase_client.table("complex_daily_portfolio_pnl").select("*").execute()
+            reponse = supabase_client.table("daily_complex_portfolio_pnl").select("*").execute()
             reponse = reponse.data
 
             last_state = reponse[-1]
@@ -499,7 +506,7 @@ class ComplexPortfolio:
             return cls(
                 cash_position = last_state.get("cash_position",0),
                 nav = last_state.get("nav",0),
-                quantity_assets = last_state.get("quantity_assets",0),
+                quantity_assets = last_state.get("quantity_asset",0),
                 options_list = df_options,
                 options_available = None,
                 total_delta = last_state.get("total_delta",0),
@@ -550,11 +557,16 @@ def strategy(client_supabase) :
     print("\n--- 4. Recherche d'opportunités (ML & Arbitrage) ---")
     try:
         df_ml_ready = portfolio.df_for_ML(client_supabase, df_prices, asof)
+        print("DATASET READY", df_ml_ready)
         
         if not df_ml_ready.empty:
-            candidates = portfolio.mispriced_options_without_ML(client_supabase, df_ml_ready)
-          
-            portfolio.new_options(candidates, client_supabase, asof, S0)
+            #candidates = portfolio.mispriced_options_without_ML(client_supabase, df_ml_ready)
+            candidates = portfolio.mispriced_options_with_ml(client_supabase, df_ml_ready)
+            if candidates[candidates["iv_diff"] > 0].empty:
+                print("Aucune opportunité d'arbitrage détectée aujourd'hui.")
+            else : 
+                print("CANDIDATES READY", candidates)
+                portfolio.new_options(candidates, client_supabase, asof, S0)
         else:
             print("Pas de données de surface de vol (vol_surfaces) pour aujourd'hui. Pas de nouveaux trades.")
     except Exception as e:
@@ -568,7 +580,7 @@ def strategy(client_supabase) :
     portfolio.delta_hedging(client_supabase, S0)
     portfolio.greeks_calcul(client_supabase)
 
-    portfolio.multi_greeks_hedging(client_supabase, target_gamma=(50, 200))
+    portfolio.multi_greeks_hedging(client_supabase, target_gamma=(0, 6))
 
     print("\n--- 6. Sauvegarde et Fin ---")
     portfolio.to_complex_portfolio(client_supabase, S0, asof)

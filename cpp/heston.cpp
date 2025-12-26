@@ -152,7 +152,8 @@ MCResult price_european_call_mc(
 }
 
 int main() {
-    // Exemple de paramètres
+    std::vector<int> Nu = {10,25,50,100,200,500,750,1000,1500,3000,5000,10000,20000};
+    for (int i;i< Nu.size(); i++){
     HestonParams p;
     p.S0 = 100.0;  // le prix du sous-jacent 
     p.v0 = 0.04;  // la variance ini
@@ -165,7 +166,7 @@ int main() {
     double K = 100.0;
     double T = 1.0;    // maturité en années
     int M = 252;       // steps (journaliers)
-    int N = 20000;    // chemins Monte Carlo 
+    int N = Nu[i];    // chemins Monte Carlo 
     unsigned long long seed = 123456789ULL;
 
     std::cout << std::fixed << std::setprecision(6);
@@ -181,6 +182,6 @@ int main() {
     std::cout << "Std error = " << res.std_error << "   (n=" << res.n_paths << ")\n";
     std::cout << "95% CI = [" << res.conf95_low << ", " << res.conf95_high << "]\n";
     std::cout << "Runtime (s) = " << res.runtime_seconds << "\n";
-
+};
     return 0;
 }

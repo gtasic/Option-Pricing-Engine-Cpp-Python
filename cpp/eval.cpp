@@ -1,6 +1,8 @@
 #include "total.hpp"
 #include <cmath>
 #include <iostream>
+#include <vector>
+
 
 double inv_sqrt_2pi() { return 1.0 / std::sqrt(2.0 * M_PI); }
 

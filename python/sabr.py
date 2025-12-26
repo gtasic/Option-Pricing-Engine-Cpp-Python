@@ -62,17 +62,17 @@ def calibrate_sabr_robust(strikes, market_ivs, S0, T, r=0.04, q=0.0, beta=0.5):
     
     x0 = [alpha_guess, 0.0, 0.3] 
     
-    # Contraintes : Alpha > 0, -1 < Rho < 1, Nu > 0
-    bounds = [(1e-4, None), (-0.999, 0.999), (1e-4, 5.0)]
+    bounds = [(1e-4, 5.0), (-0.999, 0.999), (1e-4, 5.0)]
     
     def objective(params):
         a, r_val, n = params
         model_ivs = [sabr_vol(k, F, T, a, beta, r_val, n) for k in strikes]
-        
+        weights = np.ones(len(strikes))
+        weights[idx_atm] = 8.0
         # Erreur quadratique pondérée (on punit plus les erreurs ATM que OTM)
         # Poids = 1 / Vega ou simplement Gaussian autour de l'ATM
         # Ici simple: somme des carrés
-        return np.sum((market_ivs - np.array(model_ivs))**2)
+        return np.sum(weights*(market_ivs - np.array(model_ivs))**2)
 
     try:
         res = minimize(objective, x0, method='L-BFGS-B', bounds=bounds)
@@ -91,7 +91,7 @@ r_rate = 0.045 # Taux sans risque actuel (ex: 4.5%)
 print(f"{'Maturity':<10} | {'Alpha':<8} | {'Beta':<5} | {'Rho':<8} | {'Nu':<8} | {'Error (RMSE)':<10}")
 print("-" * 65)
 
-for x in sorted(maturity): 
+"""for x in sorted(maturity): 
     df_matu = df[df["T"]==x].sort_values("strike")
 
     ivs = df_matu["sigma"].values
@@ -102,7 +102,7 @@ for x in sorted(maturity):
     alpha, beta, rho, nu, err = calibrate_sabr_robust(strikes, ivs, S0, x, r=r_rate, beta=0.5)
 
     rmse = np.sqrt(err / len(strikes))
-    print(f"{x*365:5.1f} days | {alpha:.4f}   | {beta:.1f}   | {rho:+.4f}   | {nu:.4f}   | {rmse:.2e}")
+    print(f"{x*365:5.1f} days | {alpha:.4f}   | {beta:.1f}   | {rho:+.4f}   | {nu:.4f}   | {rmse:.2e}")"""
 """    
 strikes = np.array([90, 95, 100, 105, 110])
 market_ivs = np.array([0.25, 0.22, 0.20, 0.21, 0.23])  # Smile

@@ -36,16 +36,10 @@ df_final = pd.merge(
     df_prix[["asof", "log_returns","hist_vol_10d", "target_realized_vol_10d","close"]],
     on="asof",                      
     how="left"      )               
-df_arbitrage = pd.merge(
-    bt.final,                             
-    df_prix[["asof", "log_returns","hist_vol_10d","close"]],
-    on="asof",                      
-    how="left"      )   
 
-df_arbitrage = df_arbitrage.rename(columns={"iv":"sigma"})  
 
-df_arbitrage = df_arbitrage.dropna()
-df_final = df_final.dropna()
+
+#df_final = df_final.dropna()
 
 df_final = df_final[df_final["iv"]>0.01]
 
@@ -82,18 +76,18 @@ def prepare_ml_features(df_day, heston_params, sabr_params_by_maturity, spot_pri
         if T in sabr_params_by_maturity:
             params = sabr_params_by_maturity[T]
         
-        # Remplissage
-        df.at[idx, 'S_alpha'] = params['alpha']
-        df.at[idx, 'S_rho'] = params['rho']
-        df.at[idx, 'S_nu'] = params['nu']
-        
-     
-        try:
-            theo_iv = sabr.sabr_vol(K, spot_price, T, params['alpha'], 0.5, params['rho'], params['nu'])
-            df.at[idx, 'S_theoretical_iv'] = theo_iv
-        except:
-            df.at[idx, 'S_theoretical_iv'] = row['iv'] 
+            # Remplissage
+            df.at[idx, 'S_alpha'] = params['alpha']
+            df.at[idx, 'S_rho'] = params['rho']
+            df.at[idx, 'S_nu'] = params['nu']
             
+     
+            try:
+                theo_iv = sabr.sabr_vol(K, spot_price, T, params['alpha'], 0.5, params['rho'], params['nu'])
+                df.at[idx, 'S_theoretical_iv'] = theo_iv
+            except:
+                df.at[idx, 'S_theoretical_iv'] = row['iv'] 
+                
 
     df['SABR_Edge'] = df['iv'] - df['S_theoretical_iv']
     
@@ -165,7 +159,7 @@ if processed_days:
     print(df_train_ready[['asof', 'iv', 'H_kappa', 'S_rho', 'SABR_Edge']].head())
 else:
     print("❌ Aucun jour n'a pu être traité.")
-df_train_ready = df_train_ready.dropna()
+#df_train_ready = df_train_ready.dropna()
 df_train_ready.to_csv("df_train_ready_good.csv", index=False)
 
 
@@ -176,8 +170,9 @@ features = ["tenor","moneyness","iv",
 
 target = 'target_realized_vol_10d'
 
-df_final = pd.read_csv("df_train_ready.csv")
-
+df_final = pd.read_csv("df_train_ready_good.csv")
+df_final = df_final.drop(["expiry", "delta"], axis=1)
+df_final = df_final.dropna()
 split_index = int(len(df_final) * 0.80)
 X_train = df_final[features].iloc[:split_index]
 y_train = df_final[target].iloc[:split_index]

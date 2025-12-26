@@ -4,81 +4,69 @@ import pandas as pd
 import supabase
 import os 
 from dotenv import load_dotenv
-from statsmodels.tsa.stattools import adfuller
-
+import sys
 load_dotenv()
+sys.path.append("/workspaces/finance-/build")
+import finance as fn
+
+
+
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_KEY")
 client = supabase.create_client(supabase_url, supabase_key)
 
-def analyze_hedging_performance(df_pnl):
-    returns = df_pnl['daily_pnl'][1:].values
-    _, p_value_normality = stats.shapiro(returns)
-    
-    adf_stat, p_value_adf, _, _, critical_values, _ = adfuller(returns)
+df_stats = pd.DataFrame(client.table("daily_choice").select('*').limit(5).execute().data)
+df_graph = df_stats = pd.DataFrame(client.table("daily_choice").select('*').execute().data)
 
-    mean_return = np.mean(returns)
-    std_return = np.std(returns, ddof=1)
-    n = len(returns)
-    sharpe = mean_return / std_return * np.sqrt(252)
-    
-    sharpe_ci = bootstrap_sharpe_ci(returns, n_bootstrap=10000)
-    
-    t_stat = mean_return / (std_return / np.sqrt(n))
-    p_value_sharpe = 1 - stats.t.cdf(t_stat, df=n-1)
-    
-    skewness = stats.skew(returns)
-    kurtosis = stats.kurtosis(returns)
-    
-    var_95 = np.percentile(returns, 5)
-    cvar_95 = returns[returns <= var_95].mean()
-    
-    results = {
-        'sharpe_ratio': sharpe,
-        'sharpe_ci_lower': sharpe_ci[0],
-        'sharpe_ci_upper': sharpe_ci[1],
-        'p_value_profitable': p_value_sharpe,
-        'is_normal': p_value_normality > 0.05,
-        'skewness': skewness,
-        'kurtosis': kurtosis,
-        'var_95': var_95,
-        'cvar_95': cvar_95,
-        'n_observations': n
-    }
-    
-    return results
 
-def bootstrap_sharpe_ci(returns, n_bootstrap=10000, alpha=0.05):
-    """Bootstrap pour intervalle de confiance du Sharpe"""
-    sharpe_bootstrap = []
-    n = len(returns)
-    
-    for _ in range(n_bootstrap):
-        sample = np.random.choice(returns, size=n, replace=True)
-        sharpe = np.mean(sample) / np.std(sample, ddof=1) * np.sqrt(252)
-        sharpe_bootstrap.append(sharpe)
-    
-    return np.percentile(sharpe_bootstrap, [alpha/2*100, (1-alpha/2)*100])
+N = [1,5,10,50,100,200,500,1500,2000,3000]
+prix_MC= []
+prix_CRR = []
+prix_Heston = []
+prix_marche = []
 
-df_portfolio = client.table('daily_portfolio_pnl').select('*').execute().data
-portfolio_df = pd.DataFrame(df_portfolio)
-results = analyze_hedging_performance(portfolio_df)
 
-print(f"""
-=== Statistical Analysis of Delta Hedging Strategy ===
+"""for i in range(len(N)): 
+    mc_p =[]
+    mc_crr =[]
+    mc_heston =[]
+    for index, row in df_stats.iterrows() :
+        prix_marche = (row["bid"]+row["ask"])/2
+        mc = fn.monte_carlo_call(fn.MC_parametres(N[i],N[i],float(row["S0"]),float(row["strike"]),float(row["T"]),float(row["r"]),float(row["sigma"])))
+        crr = fn.tree(fn.tree_parametres(float(row["S0"]),float(row["strike"]),float(row["T"]),float(row["r"]),float(row["sigma"]),N[i]))
+        heston_params = fn.HestonParams(float(row["S0"]), float(0.04), float(0.04), float(1),float(0.04),  float(0.2), float(-0.5))
+        heston_price = fn.price_european_call_mc(heston_params, float(row["strike"]), float(row["T"]), N[i], N[i], 42, False).price
+        mc_p.append(abs(mc-prix_marche)/prix_marche)
+        mc_crr.append(abs(crr-prix_marche)/prix_marche)
+        mc_heston.append(abs(heston_price-prix_marche)/prix_marche)
+    prix_MC.append(round(float(np.mean(mc_p)),4))
+    prix_CRR.append(round(float(np.mean(mc_crr)),4))
+    prix_Heston.append(round(float(np.mean(mc_heston)),4))
+    print(f"C'est bon pour N = {N[i]}")
 
-Sharpe Ratio: {results['sharpe_ratio']:.2f}
-95% CI: [{results['sharpe_ci_lower']:.2f}, {results['sharpe_ci_upper']:.2f}]
-P-value (profitable): {results['p_value_profitable']:.4f} {'✓ Significant' if results['p_value_profitable'] < 0.05 else '✗ Not significant'}
 
-Returns Distribution:
-- Normality: {'Yes' if results['is_normal'] else 'No (fat tails)'}
-- Skewness: {results['skewness']:.2f} {'(left tail)' if results['skewness'] < 0 else '(right tail)'}
-- Excess Kurtosis: {results['kurtosis']:.2f}
+print(prix_MC)
+print(prix_CRR)
+print(prix_Heston)
 
-Risk Metrics:
-- VaR (95%): {results['var_95']:.2f}€
-- CVaR (95%): {results['cvar_95']:.2f}€
 
-Sample Size: {results['n_observations']} days
-""")
+"""
+
+
+
+
+df_graph["moneyness"] = df_graph["S0"]/df_graph["strike"]
+df_graph["MAE_BS"] = abs(df_graph["BS_price"]- (df_graph["bid"]+df_graph["ask"])/2)/(df_graph["bid"]+df_graph["ask"])/2
+df_graph["MAE_MC"] = abs(df_graph["MC_price"]- (df_graph["bid"]+df_graph["ask"])/2)/(df_graph["bid"]+df_graph["ask"])/2
+df_graph["MAE_CRR"] = abs(df_graph["CRR_price"]- (df_graph["bid"]+df_graph["ask"])/2)/(df_graph["bid"]+df_graph["ask"])/2
+df_graph["Heston"] = np.nan
+for index, row in df_graph.iterrows() : 
+        heston_params = fn.HestonParams(float(row['S0']), 0.04, 0.04, 1,0.04, 0.2, -0.5)
+        heston_price = fn.price_european_call_mc(heston_params, row["strike"], row["T"], 252, 100, 42, False)
+        df_graph.loc[index,"Heston"] = heston_price.price
+
+df_graph["MAE_Heston"] = abs(df_graph["Heston"]- (df_graph["bid"]+df_graph["ask"])/2)/(df_graph["bid"]+df_graph["ask"])/2
+
+
+df_graph.to_csv("/workspaces/finance-/csv/compa.csv")
+

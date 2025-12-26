@@ -49,6 +49,13 @@ def final_pd(df_simu) :
 # on aurait pu vectoriser avec .apply() pour optimisation future (gain ~10x performance), c'est une fonctionnalité à implémenter 
 # Fonctionne actuellement pour datasets <1000 lignes
     df_simu["r"] = 0.04
+    resultat_bs = []
+    resultat_crr = []
+    resultat_mc = []
+    resultat_gamma = []
+    resultat_theta = []
+    resultat_rho = []
+    resultat_vega = []
     for i in range(len(df_simu["S0"])) : 
         BS_para = finance.BS_parametres(df_simu["S0"].iloc[i],df_simu["strike"].iloc[i],
                                         df_simu["T"].iloc[i],df_simu["r"].iloc[i],df_simu["sigma"].iloc[i]) 
@@ -58,13 +65,29 @@ def final_pd(df_simu) :
         
        # CRR_para.S0, CRR_para.K, CRR_para.T, CRR_para.r, CRR_para.sigma, CRR_para.N = df_simu["S0"].iloc[i],df_simu["strike"].iloc[i],df_simu["T"].iloc[i],df_simu["r"].iloc[i],df_simu["sigma"].iloc[i], 1000
 
-        df_simu["gamma"].iloc[i] = finance.call_gamma(BS_para)
-        df_simu["vega"].iloc[i] = finance.call_vega(BS_para)
-        df_simu[ "theta"].iloc[i] = finance.call_theta(BS_para)
-        df_simu[ "rho"].iloc[i] = finance.call_rho(BS_para)
-        df_simu[ "BS_price"].iloc[i] = finance.call_price(BS_para) 
-        df_simu[ "MC_price"].iloc[i] = finance.monte_carlo_call(MC_para)
-        df_simu[ "CRR_price"].iloc[i] = finance.tree(CRR_para)
+        #df_simu.loc[i,"gamma"] = finance.call_gamma(BS_para)
+        #df_simu.loc[i,"vega"] = finance.call_vega(BS_para)
+        #df_simu.loc[i, "theta"] = finance.call_theta(BS_para)
+        #df_simu.loc[i, "rho"] = finance.call_rho(BS_para)
+        #df_simu.loc[i, "BS_price"] = finance.call_price(BS_para) 
+        #df_simu.loc[i, "MC_price"] = finance.monte_carlo_call(MC_para)
+        #df_simu.loc[i, "CRR_price"] = finance.tree(CRR_para)
+        resultat_bs.append(finance.call_price(BS_para))
+        resultat_crr.append(finance.tree(CRR_para))
+        resultat_mc.append(finance.monte_carlo_call(MC_para))
+        resultat_gamma.append(finance.call_gamma(BS_para))
+        resultat_vega.append(finance.call_vega(BS_para))
+        resultat_theta.append(finance.call_theta(BS_para))
+        resultat_rho.append(finance.call_rho(BS_para))
+    df_simu["BS_price"] = resultat_bs
+    df_simu["MC_price"] = resultat_mc
+    df_simu["CRR_price"] = resultat_crr
+    df_simu["gamma"] = resultat_gamma
+    df_simu["vega"] = resultat_vega
+    df_simu["theta"] = resultat_theta
+    df_simu["rho"] = resultat_rho
+    
+
 
     return df_simu
    
@@ -91,10 +114,10 @@ def choix_df(date_target, delta_target) :
     final_pd(df_choix_15).to_csv("data.csv")
 
     final = final_pd(df_choix_15)
-    final = final.drop_duplicates(subset=['contract_symbol'])  #on enlève les doublons
+    final = final.drop_duplicates(subset=['contract_symbol'])  
     return final
 
-final = choix_df(date_target, delta_target)  #tous les jours on implémente nos données dans notre table 
+final = choix_df(date_target, delta_target)   
 
 print(final)
 dict_daily = supabase.table("portfolio_options").select("*").execute().data

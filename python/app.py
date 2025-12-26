@@ -25,13 +25,9 @@ st.write("The models pages includes various option pricing models such as Blacl-
 "by modifying parameters such as volatility, interest rates, time to maturity and underlying asset price.")
 
 
-
 # Chargement
-df = pd.read_csv('df_train_ready.csv')
+df = pd.read_csv('/workspaces/finance-/csv/df_train_ready.csv')
 
-# --- GRAPHIQUE 1 : HESTON REGIME (Interactif) ---
-# On veut voir l'évolution jour après jour.
-# On prend une moyenne par jour pour n'avoir qu'un point par jour (le régime du jour)
 df_daily = df.groupby('asof')[['H_kappa', 'H_volvol']].mean().reset_index()
 
 fig_heston = px.scatter(
@@ -100,13 +96,9 @@ st.plotly_chart(fig_sabr)
 st.write("The first graph shows the evolution of volatility regimes over time, highlighting how market psychology changes. The second graph displays the distribution of arbitrage opportunities detected using the SABR model, with options priced significantly above or below their fair value.")    
 
 
-import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
-import plotly.express as px
 
-# Chargement des données
-df = pd.read_csv('df_train_ready.csv')
+
+df = pd.read_csv('/workspaces/finance-/csv/df_train_ready.csv')
 
 # --- PRÉPARATION DES DONNÉES POUR LA HEATMAP ---
 # On doit "binner" (grouper) les données pour créer une grille
@@ -194,7 +186,7 @@ import plotly.graph_objects as go
 from scipy.interpolate import griddata
 
 # Chargement
-df = pd.read_csv('df_train_ready.csv')
+df = pd.read_csv('/workspaces/finance-/csv/df_train_ready.csv')
 
 # --- PRÉPARATION DES DONNÉES 3D ---
 # Pour tracer une surface 3D, il faut une grille (Meshgrid).
