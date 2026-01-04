@@ -4,29 +4,44 @@ A high-performance quantitative finance project for option pricing, risk analysi
 
 ---
 
+---
+
 ## ✨ Key Features
 
-* **Multi-Model Pricing:** Implements Black-Scholes, Binomial Trees (CRR), and Monte Carlo models for European call options.
-* **Comprehensive Risk Analysis:** Calculates and validates key Greeks (Delta, Gamma, Vega, Theta) to manage portfolio risk.
-* **Rigorous Model Validation:** Provides in-depth analysis of model performance, including error distribution by maturity and sanity checks on Greeks.
-* **Delta-Hedging Backtesting Engine:** Simulates a delta-neutral strategy, tracking daily P&L, NAV, transaction costs, and key performance metrics.
-* **Volatility Arbitrage:** Volatility Studying through several models to build the vol smile.
-* **ML utilization:** Volatility prediction through python ML library and training via real data from yahoo finance.
-* **Interactive Dashboard:** A Streamlit web application to visualize model performance, portfolio evolution, and hedging results.
-* **Automated Reporting:** Generates analysis reports via the OpenAI (GPT-4) API.
+* **⚡ Multi-Model Pricing:** High-performance C++ implementations of **Black-Scholes**, **Binomial Trees (CRR)**, and **Monte Carlo** simulations.
+* **📊 Risk Analysis (Greeks):** Real-time calculation of Delta, Gamma, Vega, and Theta for portfolio risk management.
+* **🤖 Machine Learning:** Volatility prediction using **XGBoost** trained on real market data (Yahoo Finance).
+* **📉 Delta-Hedging Engine:** Backtesting simulator tracking P&L, NAV, and transaction costs for delta-neutral strategies.
+* **📈 Volatility Arbitrage:** Smile construction and arbitrage opportunity detection.
+* **🖥️ Interactive Dashboard:** Full-stack web app (Streamlit and Python) deployed via Docker.
 
 ---
 
 ## 🛠️ Technical Stack
 
-* **High-Performance Computing:** C++20
-* **Scripting & Analysis:** Python 3.12, Pybind11
-* **Data Management:** Supabase (PostgreSQL)
-* **Data Science:** Pandas, NumPy, xgboost
-* **Web Dashboard:** Streamlit, Plotly
-* **Deployment:** Docker
+| Component | Technology | Description |
+| :--- | :--- | :--- |
+| **Core Engine** | **C++20** | Optimized for numerical computation speed. |
+| **Interface** | **Pybind11** | Zero-copy binding between C++ backend and Python. |
+| **Data & ML** | **Pandas, XGBoost** | Data manipulation and volatility forecasting. |
+| **Database** | **Supabase (PostgreSQL)** | Storage for historical data and backtest results. |
+| **Frontend** | **Streamlit, Plotly** | Interactive visualization and reporting. |
+| **DevOps** | **Docker** | Containerized environment for reproducible builds. |
 
 ---
+
+## 🏗️ Project Structure
+
+```text
+├── cpp/                  # C++ Core (Pricing engines, MC simulations)
+├── python/               # Python Bindings & Data Analysis
+│   ├── dashboard.py      # Streamlit Entry point
+│   └── ml_models/        # XGBoost volatility models
+├── Dockerfile            # Multi-stage build configuration
+├── requirements.txt      # Python dependencies
+└── CMakeLists.txt        # Build system config
+```
+
 
 ## 🚀 Quick Start with Docker
 
@@ -47,21 +62,25 @@ This project is fully containerized, ensuring a simple and reproducible setup. M
 3.  **Run the analysis script:**
     *(This command runs the default script to validate the pricing models.)*
     ```bash
-    docker run option-pricer
+    docker run -p 8501:8501 option-pricer
     ```
 
 ---
 
 ## 🖥️ Interactive Dashboard
 
-To launch the Streamlit web application and explore the results interactively, run the following command. This will make the dashboard available in your browser.
-
+To see the intercative dashboard, you can go on the depoyed web-page. 
 ```bash
-docker run -p 8501:8501 option-pricer streamlit run python/dashboard.py
-```
+[docker run -p 8501:8501 option-pricer streamlit run python/dashboard.py
+](https://huggingface.co/spaces/gtasic/Volatility-Arbitrage-Engine)```
 Then, open your web browser and go to **http://localhost:8501**.
+```
 
 ---
+
+##📬 Contact
+- Developer: Gaspard Tasic
+- https://www.linkedin.com/in/gaspard-tasic-3553692a2/
 
 ## ⚖️ License
 
