@@ -1,2 +1,11 @@
 .env
+csv/
+complex_final_pred.csv
+data.csv
+df_train_ready_good.csv
+ML_sigma_results.csv
+performance.py
+pro_vol_smile.png
+report.py
+stress_testing.py
 

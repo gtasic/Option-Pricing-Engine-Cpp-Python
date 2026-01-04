@@ -1,5 +1,0 @@
-/workspaces/finance-/build/CMakeFiles/finance.dir
-/workspaces/finance-/build/CMakeFiles/edit_cache.dir
-/workspaces/finance-/build/CMakeFiles/rebuild_cache.dir
-/workspaces/finance-/build/cpp/pybind11/CMakeFiles/edit_cache.dir
-/workspaces/finance-/build/cpp/pybind11/CMakeFiles/rebuild_cache.dir
