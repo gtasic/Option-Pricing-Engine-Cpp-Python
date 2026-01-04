@@ -16,6 +16,7 @@ from plotly.subplots import make_subplots
 from scipy.stats import kurtosis, skew
 import plotly.graph_objects as go
 from scipy.interpolate import griddata
+import matplotlib.pyplot as plt
 
 
 supabase_url  = os.environ.get("SUPABASE_URL")
@@ -28,8 +29,8 @@ st.title("Delta Hedging Strategy Analysis")
 st.write("This page explores the implementation and performance of a delta hedging strategy for options trading."
          "Delta hedging involves adjusting the hedge position in the underlying asset to maintain a delta-neutral portfolio, thereby minimizing risk from price movements of the underlying asset.")
 st.subheader("Strategy Overview")
-st.markdown("""In this portfolio, we implement a ddelta hedging strategy however we use a strategy that is a bit more complex than a simple delta hedge. 
-            Indeed, for selcting options we use the SABR and  Heston models in order to represent more accurately the market dynamics and implied volatility surface.
+st.markdown("""In this portfolio, we implement a Delta hedging strategy however we use a strategy that is a bit more complex than a simple delta hedge. 
+            Indeed, for selecting options we use the SABR and  Heston models in order to represent more accurately the market dynamics and implied volatility surface.
             Then we use a ML model to predict the future volatility and adjust our hedging strategy accordingly.
             The main steps of the strategy are as follows:
             1. **Modeling the Implied Volatility Surface**: We use the SABR model to fit the implied volatility surface of options. This allows us to capture the volatility smile and skew observed in the market.
@@ -39,6 +40,7 @@ st.markdown("""In this portfolio, we implement a ddelta hedging strategy however
             5. **Performance Monitoring**: The performance of the hedging strategy is continuously monitored, with key metrics such as NAV, Sharpe ratio, and drawdown being tracked.
             This approach aims to enhance the effectiveness of delta hedging by incorporating advanced modeling techniques and predictive analytics.
             """)
+
 
 portfolio_df = supabase_client.table("daily_complex_portfolio_pnl").select("*").execute().data
 portfolio_df = pd.DataFrame(portfolio_df)
@@ -51,7 +53,7 @@ current_nav = portfolio_df['nav'].iloc[-1]
 daily_pnl = portfolio_df['daily_pnl'].iloc[-1]
 sharpe = portfolio_metrics['sharpe_ratio'].iloc[-1]  # Example Sharpe ratio
 max_dd = portfolio_metrics['max_drawdown'].iloc[-1]  # Example max drawdown
-total_delta = portfolio_df['total_delta'].iloc[-1]  # Example total delta
+total_delta = portfolio_df['total_delta'].iloc[-1] + portfolio_df['quantity_asset'].iloc[-1]  # Example total delta
 # We will have to implement the real values from our supabase database
 
 with col1:
@@ -93,6 +95,8 @@ fig.update_layout(title='Portfolio Value Over Time',
                    yaxis_title='Portfolio Value (€)')
 st.plotly_chart(fig, use_container_width=True)
 
+st.write(" The portfolio value graph illustrates the growth and fluctuations of the delta-hedged options portfolio over time. " \
+"The graph shows a steady increase in portfolio value, indicating the effectiveness of the delta hedging strategy in managing risk and generating returns.")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -115,6 +119,12 @@ with col2:
                             xaxis_title='Date',
                             yaxis_title='Hedged Quantity')
     st.plotly_chart(fig_delta, use_container_width=True)    
+
+st.write("The daily PnL distribution histogram provides insights into the profitability and risk profile of the delta-hedged options portfolio. " \
+"The histogram shows the frequency of daily profit and loss outcomes, highlighting the strategy's ability to " \
+"generate consistent returns while managing downside risk. " \
+"The quantity hedged over time graph illustrates how the delta hedging strategy dynamically adjusts the position in the underlying asset to maintain a delta-neutral portfolio. " \
+"This adjustment is crucial for mitigating the impact of price movements in the underlying asset on the overall portfolio performance.")
 
 
 def get_open_positions():
@@ -150,6 +160,10 @@ st.dataframe(
     use_container_width=True
 )
 
+st.write("The open options table provides a snapshot of the current positions held in the delta-hedged portfolio. " \
+         "It includes key details such as contract symbols, strike prices, expiry dates, quantities, and the Greeks (Delta, Gamma, Vega, Theta) associated with each option. " \
+            "This information is crucial for monitoring the portfolio's risk exposure and making informed decisions about adjustments to the hedging strategy.")
+
 st.subheader("🎯 Portfolio Greeks")
 col1, col2, col3, col4, col5 = st.columns(5)
 col1.metric("Δ Total", f"{df_positions['delta'].sum():.2f}")
@@ -157,6 +171,10 @@ col2.metric("Γ Total", f"{df_positions['gamma'].sum():.3f}")
 col3.metric("ν Total", f"{df_positions['vega'].sum():.1f}")
 col4.metric("Θ Total", f"{df_positions['theta'].sum():.1f}")
 col5.metric("ρ Total", f"{df_positions['rho'].sum():.1f}")
+
+st.write("The portfolio Greeks section summarizes the aggregate sensitivities of the delta-hedged options portfolio to various risk factors. " \
+         "Delta (Δ) measures the sensitivity to changes in the underlying asset's price, Gamma (Γ) indicates the rate of change of Delta, Vega (ν) reflects sensitivity to volatility changes, Theta (Θ) represents time decay, and Rho (ρ) measures sensitivity to interest rate changes. " \
+"This overview helps in assessing the overall risk profile of the portfolio and guides adjustments to the hedging strategy.")
 
 st.subheader("📊 Strike Distribution")
 fig = go.Figure(data=[go.Bar(x=df_positions['strike'], y=df_positions['quantity'])])
@@ -233,9 +251,15 @@ fig_sabr.update_layout(
 st.header("Visualizations")
 st.write("The following visualizations illustrate the dynamics of volatility regimes and arbitrage opportunities in the options market based on the Heston and SABR models respectively.")  
 st.plotly_chart(fig_heston)
-st.plotly_chart(fig_sabr)
-st.write("The first graph shows the evolution of volatility regimes over time, highlighting how market psychology changes. The second graph displays the distribution of arbitrage opportunities detected using the SABR model, with options priced significantly above or below their fair value.")    
+st.info("The graph above depicts the evolution of volatility regimes over time using the Heston model parameters. " \
+        "It highlights how market psychology changes, with shifts in the speed of mean reversion (Kappa) and volatility of volatility (Vol of Vol). " \
+        "These dynamics are crucial for understanding market sentiment and potential future movements.")
 
+
+st.plotly_chart(fig_sabr)
+st.info("The histogram above shows the distribution of arbitrage opportunities identified using the SABR model. " \
+         "It categorizes options into overpriced (sell opportunities), underpriced (buy opportunities), and noise based on the edge between market implied volatility and model implied volatility. " \
+"This visualization helps in detecting pricing anomalies greater than 5%, guiding trading decisions.")
 
 
 
@@ -276,6 +300,9 @@ fig_heatmap.update_layout(
 )
 
 st.plotly_chart(fig_heatmap)
+st.info("The heatmap above visualizes arbitrage opportunities across different moneyness and tenor combinations using the SABR model. " \
+"It highlights where alpha can be found, with red areas indicating overpriced options (sell opportunities) and blue areas indicating underpriced options (buy opportunities). " \
+"This tool aids traders in identifying optimal strike and maturity pairs for potential trades.")
 
 fig_skew = px.scatter(
     df, 
@@ -308,6 +335,9 @@ fig_skew.update_layout(
     hovermode="closest" )
 
 st.plotly_chart(fig_skew)
+st.info("The scatter plot above illustrates the term structure of the volatility skew using the SABR model's rho parameter. " \
+        "It shows how market fear dissipates over time, with points colored by the convexity (nu) and sized by implied volatility. " \
+"This visualization helps in understanding market sentiment and the perceived risk of extreme events across different maturities.")
 
 
 df = pd.read_csv('/workspaces/finance-/csv/df_train_ready.csv')
@@ -398,8 +428,14 @@ fig_alpha.update_layout(
 
 
 st.plotly_chart(fig_calibration)
-st.plotly_chart(fig_alpha)
+st.info("The 3D surface plot above illustrates the calibration quality of the SABR model against market data. " \
+"It shows the SABR model's implied volatility surface (draped surface) alongside actual market implied volatilities (red points). " \
+"This visualization helps assess how well the SABR model fits market conditions across different moneyness and maturities.")
 
+st.plotly_chart(fig_alpha)
+st.info("The 3D surface plot above visualizes the volatility edge between market implied volatility and SABR model implied volatility. " \
+"It highlights areas where options are overpriced (peaks, sell opportunities) and underpriced (valleys, buy opportunities). " \
+"This topography aids traders in identifying potential alpha-generating opportunities in the options market.")
 
 
 
@@ -815,11 +851,170 @@ def create_all_visualizations():
 
 df_attribution, fig1, fig2, fig3, fig4, fig5 = create_all_visualizations()
 st.subheader("Combined P&L Attribution Dashboard")
-st.info("ttttt")
+st.info("The dashboard below consolidates key visualizations for P&L attribution, providing a comprehensive overview of the portfolio's performance and risk factors." \
+" It includes the latest day's waterfall chart, cumulative P&L by Greek, total contribution by Greek, and a heatmap of daily attribution.")
 st.plotly_chart(fig1)
-st.info("ttttt")
+st.info("This waterfall chart illustrates the breakdown of the latest day's P&L attribution across key Greeks and residuals. " \
+"It highlights the individual contributions to the overall P&L, helping to identify which factors had the most significant impact on performance.")
 st.plotly_chart(fig2)
-st.info("ttttt")
+st.info("This stacked area chart shows the cumulative P&L attribution over time, broken down by Greek. " \
+"It provides a visual representation of how each Greek contributes to the overall P&L over the selected period.")
 st.plotly_chart(fig3)
-st.info("ttttt")
+st.info("This bar chart displays the total P&L contribution by Greek. " \
+"It helps in understanding the relative importance of each Greek in driving portfolio performance.")
 st.plotly_chart(fig4)
+st.info("This heatmap visualizes the daily P&L attribution across different Greeks over the last 15 days. " \
+        "It allows for quick identification of patterns and trends in how each Greek contributes to daily P&L.")
+
+st.subheader("Conclusion")
+st.write("The P&L attribution analysis provides valuable insights into the performance drivers of the delta-hedged options portfolio. " \
+         "By breaking down the daily and cumulative P&L into contributions from key Greeks such as Delta, Gamma, Vega, and Theta, " \
+         "we can better understand the effectiveness of our hedging strategies and identify areas for improvement. " \
+         "The visualizations highlight the dynamic nature of options trading and the importance of managing risk through a comprehensive understanding of Greek sensitivities. " \
+         "Overall, this analysis serves as a crucial tool for optimizing portfolio management and enhancing decision-making in options trading.")
+
+
+st.subheader("ML Models")
+df_ml = pd.read_csv('/workspaces/finance-/python/complex_final_pred.csv')
+
+
+st.write("In addition to traditional options pricing models, machine learning techniques have been employed to enhance the accuracy of implied volatility predictions. " \
+         "By leveraging historical market data and advanced algorithms, these models can capture complex patterns and relationships that may not be fully accounted for in classical models like SABR or Heston. " \
+         "The integration of machine learning into the options pricing framework allows for more adaptive and responsive strategies, ultimately leading to improved hedging effectiveness and portfolio performance.")
+
+st.dataframe(df_ml, use_container_width=True)
+st.write("The tables above present the results of machine learning models applied to predict implied volatility and other relevant metrics for options pricing. " \
+"The first table summarizes the performance of various machine learning algorithms, highlighting key metrics such as accuracy, precision, and recall. " \
+"The second table provides detailed predictions for individual options, including predicted implied volatility values and associated features used in the models. " \
+"These insights demonstrate the potential of machine learning to enhance traditional financial models and improve decision-making in options trading.")
+
+st.subheader("Volatility Arbitrage Opportunities")
+
+
+
+
+from scipy.interpolate import make_interp_spline
+
+top_expiry = df_ml['tenor'].value_counts().idxmax()
+df_plot = df_ml[df_ml['tenor'] == top_expiry].sort_values('strike')
+
+X_raw = df_plot['strike'].values
+X_smooth = np.linspace(X_raw.min(), X_raw.max(), 300)
+
+def smooth_curve(x, y, x_new):
+    spl = make_interp_spline(x, y, k=3) # k=3 pour cubique (très fluide)
+    return spl(x_new)
+
+Y_market_smooth = smooth_curve(X_raw, df_plot['iv'].values, X_smooth)
+Y_model_smooth = smooth_curve(X_raw, df_plot['predicted_iv'].values, X_smooth)
+
+plt.figure(figsize=(12, 7))
+plt.style.use('seaborn-v0_8-darkgrid') # Un style propre et moderne
+
+plt.plot(X_smooth, Y_market_smooth, color='#E74C3C', linewidth=2.5, label='Market Price (IV)')
+plt.plot(X_smooth, Y_model_smooth, color='#27AE60', linewidth=2.5, linestyle='--', label='Model Fair Value (ML)')
+
+plt.scatter(df_plot['strike'], df_plot['iv'], color='#E74C3C', s=30, alpha=0.6)
+plt.scatter(df_plot['strike'], df_plot['predicted_iv'], color='#27AE60', s=30, alpha=0.6)
+
+
+plt.fill_between(X_smooth, Y_market_smooth, Y_model_smooth, 
+                 where=(Y_market_smooth > Y_model_smooth),
+                 color='red', alpha=0.15, label='Overpriced (Vente Vol)')
+
+plt.fill_between(X_smooth, Y_market_smooth, Y_model_smooth, 
+                 where=(Y_market_smooth < Y_model_smooth),
+                 color='green', alpha=0.15, label='Underpriced (Achat Vol)')
+
+plt.title(f'Volatility Arbitrage Surface | Expiry: {top_expiry}', fontsize=16, fontweight='bold', pad=20)
+plt.xlabel('Strike Price ($)', fontsize=12)
+plt.ylabel('Implied Volatility', fontsize=12)
+
+atm_strike = df_plot.iloc[(df_plot['moneyness']-1).abs().argsort()[:1]]['strike'].values[0]
+plt.axvline(x=atm_strike, color='gray', linestyle=':', alpha=0.5)
+plt.text(atm_strike, plt.ylim()[0], ' ATM', color='gray', verticalalignment='bottom')
+
+plt.legend(frameon=True, facecolor='white', framealpha=1, loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=4)
+plt.tight_layout()
+
+plt.savefig('pro_vol_smile.png', dpi=300, bbox_inches='tight')
+plt.show()
+st.image('pro_vol_smile.png')
+
+
+st.write("The volatility smile chart above illustrates the relationship between strike prices and implied volatility for options with a specific expiry. " \
+"The chart compares market prices (implied volatility) with model fair values predicted by machine learning algorithms. " \
+"Areas where the market price exceeds the model value indicate overpriced options (sell volatility), while areas where the market price is below the model value indicate underpriced options (buy volatility). "\
+"This visualization helps traders identify potential arbitrage opportunities in the options market based on discrepancies between market and model valuations.")
+
+st.write("For, the ML models, because we don't have many points we chose to use the xgboost model which is more robust to small datasets and less prone to overfitting than complex neural networks. " \
+         "The xgboost model effectively captures non-linear relationships in the data while maintaining generalization capabilities, making it suitable for our options pricing predictions given the limited data available.")
+
+st.subheader("🤖 Model Specification: XGBoost")
+
+st.subheader("🤖 Model Specification: XGBoost")
+
+with st.expander("View Model Configuration Details", expanded=True):
+    st.markdown("""
+    **Modeling Approach: Robustness & Generalization**
+    
+    The model is calibrated to prevent overfitting, a critical risk when dealing with noisy volatility data.
+    
+    * **Architecture:** Gradient Boosting Regressor (XGBoost)
+    * **Key Hyperparameters:**
+        * `max_depth=3`: *Complexity constraint to avoid memorizing noise.*
+        * `learning_rate=0.01` & `n_estimators=1000`: *Shrinkage strategy for stable convergence.*
+        * `subsample=0.7`: *Stochastic bagging to reduce variance.*
+    
+    *This configuration prioritizes **prediction stability** (low variance) over raw training speed (low bias).*
+    """)
+
+
+import xgboost as xgb
+
+
+# Charger le modèle
+model = xgb.Booster()
+model.load_model('volatility_model_v1.json')
+
+import xgboost as xgb
+import matplotlib.pyplot as plt
+import streamlit as st
+
+def display_model_importance(model_path='volatility_model_v1.json'):
+    st.subheader("🧠 Model Logic: Feature Importance")
+    st.write("Ce graphique montre quelles variables ont le plus d'impact sur la prédiction de la volatilité.")
+
+    # 1. Charger le modèle
+    model = xgb.Booster()
+    model.load_model(model_path)
+    
+    # 2. Créer le graphique (Matplotlib figure)
+    # importance_type='gain' est crucial : il montre la "qualité" de l'info, pas juste la fréquence.
+    fig, ax = plt.subplots(figsize=(10, 6))
+    xgb.plot_importance(
+        model, 
+        importance_type='gain', 
+        max_num_features=10, 
+        height=0.5, 
+        color='#1f77b4', # Bleu pro
+        grid=False,
+        show_values=False,
+        title=None,
+        ax=ax
+    )
+    
+    # Customisation pour faire "Pro"
+    ax.set_title("Top 10 Drivers of Realized Volatility", fontsize=14, fontweight='bold')
+    ax.set_xlabel("Impact Score (Gain)", fontsize=12)
+    ax.set_ylabel("Market Feature", fontsize=12)
+    ax.grid(axis='x', alpha=0.3, linestyle='--')
+    
+    # 3. Afficher dans Streamlit
+    st.pyplot(fig)
+
+display_model_importance()
+
+st.write("The feature importance chart above highlights the key market variables that significantly influence the model's volatility predictions. " \
+"It provides insights into which factors the model relies on most heavily, allowing traders to better understand the underlying drivers of implied volatility in the options market. " \
+"This understanding can inform trading strategies and risk management decisions.")  

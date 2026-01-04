@@ -517,3 +517,12 @@ st.info("This bar chart displays the total P&L contribution by each Greek for th
 st.plotly_chart(fig4)
 st.info("This heatmap visualizes the daily P&L attribution for each Greek over the last 15 days. " \
 "It allows for quick identification of patterns and trends in how each Greek has contributed to daily P&L.")
+
+st.subheader("Conclusion")
+
+st.write("The P&L attribution analysis provides valuable insights into the performance of the delta hedging strategy. " \
+"By breaking down the daily P&L into contributions from Delta, Gamma, Vega, Theta, and Residual components, we can better understand the sources of profit and loss within the portfolio.   " \
+"The waterfall chart for the latest day highlights the immediate impact of each Greek on the portfolio's performance, while the stacked area chart illustrates how these contributions accumulate over time. " \
+"The bar chart summarizes the total contributions, allowing us to identify which Greeks have been most influential overall. " \
+"Finally, the heatmap provides a visual representation of daily fluctuations in P&L attribution, revealing patterns that may inform future hedging strategies. " \
+"Overall, this analysis underscores the importance of monitoring and managing the Greeks in a delta hedging strategy to optimize performance and mitigate risks.")
