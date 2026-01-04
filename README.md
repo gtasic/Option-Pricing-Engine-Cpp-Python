@@ -1,6 +1,6 @@
 # Option Pricing & Hedging Engine (C++/Python) 📈
 
-A high-performance quantitative finance library for option pricing, risk analysis (Greeks), and backtesting of a delta-hedging strategy. The core engine is built in C++ for speed, with a Python interface for flexible analysis and deployment.
+A high-performance quantitative finance project for option pricing, risk analysis (Greeks), backtesting of a delta-hedging strategy and volatility arbitrage. The core engine is built in C++ for speed, with a Python interface for flexible analysis and deployment.
 
 ---
 
@@ -10,6 +10,8 @@ A high-performance quantitative finance library for option pricing, risk analysi
 * **Comprehensive Risk Analysis:** Calculates and validates key Greeks (Delta, Gamma, Vega, Theta) to manage portfolio risk.
 * **Rigorous Model Validation:** Provides in-depth analysis of model performance, including error distribution by maturity and sanity checks on Greeks.
 * **Delta-Hedging Backtesting Engine:** Simulates a delta-neutral strategy, tracking daily P&L, NAV, transaction costs, and key performance metrics.
+* **Volatility Arbitrage:** Volatility Studying through several models to build the vol smile.
+* **ML utilization:** Volatility prediction through python ML library and training via real data from yahoo finance.
 * **Interactive Dashboard:** A Streamlit web application to visualize model performance, portfolio evolution, and hedging results.
 * **Automated Reporting:** Generates analysis reports via the OpenAI (GPT-4) API.
 
@@ -17,11 +19,11 @@ A high-performance quantitative finance library for option pricing, risk analysi
 
 ## 🛠️ Technical Stack
 
-* **High-Performance Computing:** C++17
+* **High-Performance Computing:** C++20
 * **Scripting & Analysis:** Python 3.12, Pybind11
 * **Data Management:** Supabase (PostgreSQL)
-* **Data Science:** Pandas, NumPy
-* **Web Dashboard:** Streamlit
+* **Data Science:** Pandas, NumPy, xgboost
+* **Web Dashboard:** Streamlit, Plotly
 * **Deployment:** Docker
 
 ---
