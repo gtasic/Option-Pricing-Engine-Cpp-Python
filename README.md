@@ -35,7 +35,7 @@ A high-performance quantitative finance project for option pricing, risk analysi
 ```text
 ├── cpp/                  # C++ Core (Pricing engines, MC simulations)
 ├── python/               # Python Bindings & Data Analysis
-│   ├── dashboard.py      # Streamlit Entry point
+│   ├── dashboard         # Streamlit Entry point
 │   └── ml_models/        # XGBoost volatility models
 ├── Dockerfile            # Multi-stage build configuration
 ├── requirements.txt      # Python dependencies
@@ -70,11 +70,9 @@ This project is fully containerized, ensuring a simple and reproducible setup. M
 ## 🖥️ Interactive Dashboard
 
 To see the intercative dashboard, you can go on the depoyed web-page. 
-```bash
-[docker run -p 8501:8501 option-pricer streamlit run python/dashboard.py
-](https://huggingface.co/spaces/gtasic/Volatility-Arbitrage-Engine)```
-Then, open your web browser and go to **http://localhost:8501**.
-```
+
+https://huggingface.co/spaces/gtasic/Volatility-Arbitrage-Engine
+
 
 ---
 
